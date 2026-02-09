@@ -235,7 +235,7 @@
                 <td><code>LONG</code></td>
             </tr>            <tr>
                 <td><span class="badge badge-method">SetPosition(position STRING)</span></td>
-                <td>Sets the notification position: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight</td>
+                <td>Sets the notification position: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight, Center</td>
                 <td><code>void</code></td>
             </tr>            <tr>
                 <td><span class="badge badge-method">GetPosition()</span></td>
@@ -266,6 +266,18 @@
                 <td>Gets the current text color</td>
                 <td><code>STRING</code></td>
             </tr>            <tr>
+                <td><span class="badge badge-method">SetImagePath(filePath STRING)</span></td>
+                <td>Sets the image from a file path (PNG, JPG, BMP, ICO)</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetImagePath()</span></td>
+                <td>Gets the current image file path</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">ClearImage()</span></td>
+                <td>Clears the custom image, reverting to the notification type icon</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
                 <td><span class="badge badge-method">DismissNotification()</span></td>
                 <td>Dismisses any currently visible notification</td>
                 <td><code>void</code></td>
@@ -277,6 +289,38 @@
                 <td><span class="badge badge-method">About()</span></td>
                 <td>Displays control name and version information in a MessageBox</td>
                 <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetSoundEnabled(enabled BYTE)</span></td>
+                <td>Enables or disables playing a sound when a notification is shown</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetSoundEnabled()</span></td>
+                <td>Gets whether sound is enabled</td>
+                <td><code>BYTE</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetSoundPath(wavFilePath STRING)</span></td>
+                <td>Sets a custom WAV file path for the notification sound. Empty string uses the default system sound.</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetSoundPath()</span></td>
+                <td>Gets the current custom WAV file path</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetOpacity(percent LONG)</span></td>
+                <td>Sets the notification opacity (0-100, where 100 is fully opaque). Default: 100</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetOpacity()</span></td>
+                <td>Gets the current notification opacity (0-100)</td>
+                <td><code>LONG</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetPinned(pinned BYTE)</span></td>
+                <td>Sets whether the notification stays visible until manually dismissed (true = sticky)</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetPinned()</span></td>
+                <td>Gets whether notifications are pinned (sticky)</td>
+                <td><code>BYTE</code></td>
             </tr>
                 </tbody>
             </table>

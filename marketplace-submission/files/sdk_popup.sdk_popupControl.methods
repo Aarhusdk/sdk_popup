@@ -77,7 +77,7 @@ Gets the current display duration in milliseconds
 [Method]
 SetPosition
 [MethodDescription]
-Sets the notification position: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight
+Sets the notification position: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight, Center
 [Parameter]
 position
 [ParameterType]
@@ -139,6 +139,27 @@ GetTextColor
 Gets the current text color
 
 [Method]
+SetImagePath
+[MethodDescription]
+Sets the image from a file path (PNG, JPG, BMP, ICO)
+[Parameter]
+filePath
+[ParameterType]
+STRING
+[ParameterDescription]
+The filePath parameter.
+
+[Method]
+GetImagePath
+[MethodDescription]
+Gets the current image file path
+
+[Method]
+ClearImage
+[MethodDescription]
+Clears the custom image, reverting to the notification type icon
+
+[Method]
 DismissNotification
 [MethodDescription]
 Dismisses any currently visible notification
@@ -152,4 +173,68 @@ Returns whether a notification is currently visible
 About
 [MethodDescription]
 Displays control name and version information in a MessageBox
+
+[Method]
+SetSoundEnabled
+[MethodDescription]
+Enables or disables playing a sound when a notification is shown
+[Parameter]
+enabled
+[ParameterType]
+BYTE
+[ParameterDescription]
+The enabled parameter.
+
+[Method]
+GetSoundEnabled
+[MethodDescription]
+Gets whether sound is enabled
+
+[Method]
+SetSoundPath
+[MethodDescription]
+Sets a custom WAV file path for the notification sound. Empty string uses the default system sound.
+[Parameter]
+wavFilePath
+[ParameterType]
+STRING
+[ParameterDescription]
+The wavFilePath parameter.
+
+[Method]
+GetSoundPath
+[MethodDescription]
+Gets the current custom WAV file path
+
+[Method]
+SetOpacity
+[MethodDescription]
+Sets the notification opacity (0-100, where 100 is fully opaque). Default: 100
+[Parameter]
+percent
+[ParameterType]
+LONG
+[ParameterDescription]
+The percent parameter.
+
+[Method]
+GetOpacity
+[MethodDescription]
+Gets the current notification opacity (0-100)
+
+[Method]
+SetPinned
+[MethodDescription]
+Sets whether the notification stays visible until manually dismissed (true = sticky)
+[Parameter]
+pinned
+[ParameterType]
+BYTE
+[ParameterDescription]
+The pinned parameter.
+
+[Method]
+GetPinned
+[MethodDescription]
+Gets whether notifications are pinned (sticky)
 
