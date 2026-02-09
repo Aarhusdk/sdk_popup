@@ -1,0 +1,155 @@
+﻿[Method]
+ShowNotification
+[MethodDescription]
+Shows a toast notification with the specified message
+[Parameter]
+message
+[ParameterType]
+STRING
+[ParameterDescription]
+The message parameter.
+
+[Method]
+ShowNotificationWithTitle
+[MethodDescription]
+Shows a toast notification with title and message
+[Parameter]
+title
+[ParameterType]
+STRING
+[ParameterDescription]
+The title parameter.
+[Parameter]
+message
+[ParameterType]
+STRING
+[ParameterDescription]
+The message parameter.
+
+[Method]
+SetTitle
+[MethodDescription]
+Sets the notification title text
+[Parameter]
+title
+[ParameterType]
+STRING
+[ParameterDescription]
+The title parameter.
+
+[Method]
+GetTitle
+[MethodDescription]
+Gets the current notification title text
+
+[Method]
+SetMessage
+[MethodDescription]
+Sets the notification message text
+[Parameter]
+message
+[ParameterType]
+STRING
+[ParameterDescription]
+The message parameter.
+
+[Method]
+GetMessage
+[MethodDescription]
+Gets the current notification message text
+
+[Method]
+SetDuration
+[MethodDescription]
+Sets the display duration in milliseconds (default: 3000)
+[Parameter]
+milliseconds
+[ParameterType]
+LONG
+[ParameterDescription]
+The milliseconds parameter.
+
+[Method]
+GetDuration
+[MethodDescription]
+Gets the current display duration in milliseconds
+
+[Method]
+SetPosition
+[MethodDescription]
+Sets the notification position: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight
+[Parameter]
+position
+[ParameterType]
+STRING
+[ParameterDescription]
+The position parameter.
+
+[Method]
+GetPosition
+[MethodDescription]
+Gets the current notification position
+
+[Method]
+SetNotificationType
+[MethodDescription]
+Sets the notification type: Info, Success, Warning, Error
+[Parameter]
+notificationType
+[ParameterType]
+STRING
+[ParameterDescription]
+The notificationType parameter.
+
+[Method]
+GetNotificationType
+[MethodDescription]
+Gets the current notification type
+
+[Method]
+SetBackgroundColor
+[MethodDescription]
+Sets the background color for the notification (hex format, e.g. #FF6600)
+[Parameter]
+hexColor
+[ParameterType]
+STRING
+[ParameterDescription]
+The hexColor parameter.
+
+[Method]
+GetBackgroundColor
+[MethodDescription]
+Gets the current background color
+
+[Method]
+SetTextColor
+[MethodDescription]
+Sets the text color for the notification (hex format)
+[Parameter]
+hexColor
+[ParameterType]
+STRING
+[ParameterDescription]
+The hexColor parameter.
+
+[Method]
+GetTextColor
+[MethodDescription]
+Gets the current text color
+
+[Method]
+DismissNotification
+[MethodDescription]
+Dismisses any currently visible notification
+
+[Method]
+GetIsVisible
+[MethodDescription]
+Returns whether a notification is currently visible
+
+[Method]
+About
+[MethodDescription]
+Displays control name and version information in a MessageBox
+

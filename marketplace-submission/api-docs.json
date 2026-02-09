@@ -1,0 +1,275 @@
+{
+  "methods": [
+    {
+      "name": "ShowNotification",
+      "description": "Shows a toast notification with the specified message",
+      "parameters": [
+        {
+          "name": "message",
+          "type": "STRING",
+          "description": "The message to display"
+        }
+      ],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    },
+    {
+      "name": "ShowNotificationWithTitle",
+      "description": "Shows a toast notification with title and message",
+      "parameters": [
+        {
+          "name": "title",
+          "type": "STRING",
+          "description": "The notification title"
+        },
+        {
+          "name": "message",
+          "type": "STRING",
+          "description": "The notification message"
+        }
+      ],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    },
+    {
+      "name": "SetTitle",
+      "description": "Sets the notification title text",
+      "parameters": [
+        {
+          "name": "title",
+          "type": "STRING",
+          "description": "The title text"
+        }
+      ],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    },
+    {
+      "name": "GetTitle",
+      "description": "Gets the current notification title text",
+      "parameters": [],
+      "returns": {
+        "type": "STRING",
+        "description": "The current title text"
+      }
+    },
+    {
+      "name": "SetMessage",
+      "description": "Sets the notification message text",
+      "parameters": [
+        {
+          "name": "message",
+          "type": "STRING",
+          "description": "The message text"
+        }
+      ],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    },
+    {
+      "name": "GetMessage",
+      "description": "Gets the current notification message text",
+      "parameters": [],
+      "returns": {
+        "type": "STRING",
+        "description": "The current message text"
+      }
+    },
+    {
+      "name": "SetDuration",
+      "description": "Sets the display duration in milliseconds (default: 3000)",
+      "parameters": [
+        {
+          "name": "milliseconds",
+          "type": "LONG",
+          "description": "Duration in milliseconds"
+        }
+      ],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    },
+    {
+      "name": "GetDuration",
+      "description": "Gets the current display duration in milliseconds",
+      "parameters": [],
+      "returns": {
+        "type": "LONG",
+        "description": "Duration in milliseconds"
+      }
+    },
+    {
+      "name": "SetPosition",
+      "description": "Sets the notification position: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight",
+      "parameters": [
+        {
+          "name": "position",
+          "type": "STRING",
+          "description": "Position name"
+        }
+      ],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    },
+    {
+      "name": "GetPosition",
+      "description": "Gets the current notification position",
+      "parameters": [],
+      "returns": {
+        "type": "STRING",
+        "description": "The current position"
+      }
+    },
+    {
+      "name": "SetNotificationType",
+      "description": "Sets the notification type: Info, Success, Warning, Error",
+      "parameters": [
+        {
+          "name": "notificationType",
+          "type": "STRING",
+          "description": "The notification type"
+        }
+      ],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    },
+    {
+      "name": "GetNotificationType",
+      "description": "Gets the current notification type",
+      "parameters": [],
+      "returns": {
+        "type": "STRING",
+        "description": "The current notification type"
+      }
+    },
+    {
+      "name": "SetBackgroundColor",
+      "description": "Sets the background color for the notification (hex format, e.g. #FF6600)",
+      "parameters": [
+        {
+          "name": "hexColor",
+          "type": "STRING",
+          "description": "Hex color string"
+        }
+      ],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    },
+    {
+      "name": "GetBackgroundColor",
+      "description": "Gets the current background color",
+      "parameters": [],
+      "returns": {
+        "type": "STRING",
+        "description": "The current background color"
+      }
+    },
+    {
+      "name": "SetTextColor",
+      "description": "Sets the text color for the notification (hex format)",
+      "parameters": [
+        {
+          "name": "hexColor",
+          "type": "STRING",
+          "description": "Hex color string"
+        }
+      ],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    },
+    {
+      "name": "GetTextColor",
+      "description": "Gets the current text color",
+      "parameters": [],
+      "returns": {
+        "type": "STRING",
+        "description": "The current text color"
+      }
+    },
+    {
+      "name": "DismissNotification",
+      "description": "Dismisses any currently visible notification",
+      "parameters": [],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    },
+    {
+      "name": "GetIsVisible",
+      "description": "Returns whether a notification is currently visible",
+      "parameters": [],
+      "returns": {
+        "type": "BYTE",
+        "description": "1 if visible, 0 if not"
+      }
+    },
+    {
+      "name": "About",
+      "description": "Displays control name and version information in a MessageBox",
+      "parameters": [],
+      "returns": {
+        "type": "void",
+        "description": ""
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "NotificationShown",
+      "description": "Fired when a notification is shown",
+      "parameters": [
+        {
+          "name": "title",
+          "type": "STRING",
+          "description": "The notification title"
+        },
+        {
+          "name": "message",
+          "type": "STRING",
+          "description": "The notification message"
+        }
+      ]
+    },
+    {
+      "name": "NotificationDismissed",
+      "description": "Fired when a notification is dismissed (auto-timeout or manual)",
+      "parameters": [
+        {
+          "name": "reason",
+          "type": "STRING",
+          "description": "Dismiss reason: Timeout, UserDismissed, Programmatic"
+        }
+      ]
+    },
+    {
+      "name": "NotificationClicked",
+      "description": "Fired when the user clicks on the notification",
+      "parameters": [
+        {
+          "name": "title",
+          "type": "STRING",
+          "description": "The notification title that was clicked"
+        }
+      ]
+    }
+  ],
+  "properties": []
+}

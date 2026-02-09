@@ -1,0 +1,36 @@
+﻿[Event]
+NotificationShown
+[EventDescription]
+Fired when a notification is shown
+[Parameter1]
+title
+[Parameter1Type]
+STRING
+[Parameter1Description]
+The notification title
+[Parameter2]
+message
+[Parameter2Type]
+STRING
+[Parameter2Description]
+The notification message
+[Event]
+NotificationDismissed
+[EventDescription]
+Fired when a notification is dismissed (auto-timeout or manual)
+[Parameter1]
+reason
+[Parameter1Type]
+STRING
+[Parameter1Description]
+Dismiss reason: Timeout, UserDismissed, Programmatic
+[Event]
+NotificationClicked
+[EventDescription]
+Fired when the user clicks on the notification
+[Parameter1]
+title
+[Parameter1Type]
+STRING
+[Parameter1Description]
+The notification title that was clicked

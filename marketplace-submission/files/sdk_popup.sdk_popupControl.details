@@ -1,0 +1,10 @@
+﻿[FriendlyName]
+sdk_popupControl
+[ProgID]
+sdk_popup.sdk_popupControl
+[FilenameNoExtenstion]
+sdk_popup
+[Description]
+Toast notification COM control for Clarion using DevExpress AlertControl.
+[ObjectName]
+sdk_popup_sdk_popupControl

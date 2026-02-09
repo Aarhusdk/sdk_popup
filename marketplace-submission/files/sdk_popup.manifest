@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+
+  <assemblyIdentity
+      name="sdk_popup"
+      version="1.0.1.0"
+      processorArchitecture="x86"
+      type="win32"/>
+
+  <clrClass
+      clsid="{543EDB99-F490-435D-9A2A-A9230A335041}"
+      progid="sdk_popup.sdk_popupControl"
+      threadingModel="Apartment"
+      name="sdk_popup.sdk_popupControl"
+      runtimeVersion="v4.0.30319">
+  </clrClass>
+
+  <file name="sdk_popup.dll">
+     <typelib
+         tlbid="{4CCBB89C-F2BD-4CAC-B2EA-291682EC4773}"
+         version="1.0"
+         helpdir=""
+         resourceid="0"
+         flags="HASDISKIMAGE"/>
+  </file>
+
+</assembly>

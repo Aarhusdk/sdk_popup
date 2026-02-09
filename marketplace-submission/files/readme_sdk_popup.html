@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>sdk_popup - API Documentation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #2d3748;
+            background: #f7fafc;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.95;
+        }
+        .content {
+            padding: 40px;
+        }
+        .info-box {
+            background: #ebf8ff;
+            border-left: 4px solid #4299e1;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info-box strong {
+            color: #2c5282;
+        }
+        h2 {
+            color: #2d3748;
+            font-size: 1.8em;
+            margin: 40px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        h3 {
+            color: #4a5568;
+            font-size: 1.3em;
+            margin: 25px 0 15px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+        tr:hover {
+            background-color: #f7fafc;
+        }
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        code {
+            background: #edf2f7;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            color: #2d3748;
+            border: 1px solid #e2e8f0;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        .badge-property {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+        }
+        .badge-method {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+        }
+        .badge-event {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            color: white;
+        }
+        .section-card {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #e2e8f0;
+        }
+        .tech-badge {
+            display: inline-block;
+            background: #2d3748;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        ul {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+        li {
+            margin: 8px 0;
+            color: #4a5568;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e2e8f0;
+            text-align: center;
+            color: #718096;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>sdk_popup</h1>
+            <p class="subtitle">COM Control for Clarion Applications</p>
+        </div>
+        <div class="content">
+            <div class="info-box">
+                <strong>ProgID:</strong> <code>sdk_popup.sdk_popup</code><br>
+                <strong>Assembly:</strong> <code>sdk_popup.dll</code><br>
+                <strong>Type:</strong> Registration-Free COM (RegFree)
+            </div>
+
+            <div class="section-card">
+                <h3>Deployment Files</h3>
+                <p>This control package includes all necessary files for deployment:</p>
+                <ul>
+                    <li><code>sdk_popup.dll</code> - The COM control library</li>
+                    <li><code>sdk_popup.manifest</code> - RegFree COM registration</li>
+                    <li><code>sdk_popup.details</code> - Control metadata</li>
+                    <li><code>sdk_popup.events</code> - Event definitions</li>
+                    <li><code>sdk_popup.methods</code> - Properties and methods reference</li>
+                </ul>
+            </div>
+
+            <h2>Properties</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Property</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+<tr><td colspan='3' style='text-align:center; color:#718096;'>No properties defined</td></tr>
+                </tbody>
+            </table>
+
+            <h2>Methods</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>Description</th>
+                        <th>Returns</th>
+                    </tr>
+                </thead>
+                <tbody>
+            <tr>
+                <td><span class="badge badge-method">ShowNotification(message STRING)</span></td>
+                <td>Shows a toast notification with the specified message</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">ShowNotificationWithTitle(title STRING, message STRING)</span></td>
+                <td>Shows a toast notification with title and message</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetTitle(title STRING)</span></td>
+                <td>Sets the notification title text</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetTitle()</span></td>
+                <td>Gets the current notification title text</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetMessage(message STRING)</span></td>
+                <td>Sets the notification message text</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetMessage()</span></td>
+                <td>Gets the current notification message text</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetDuration(milliseconds LONG)</span></td>
+                <td>Sets the display duration in milliseconds (default: 3000)</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetDuration()</span></td>
+                <td>Gets the current display duration in milliseconds</td>
+                <td><code>LONG</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetPosition(position STRING)</span></td>
+                <td>Sets the notification position: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetPosition()</span></td>
+                <td>Gets the current notification position</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetNotificationType(notificationType STRING)</span></td>
+                <td>Sets the notification type: Info, Success, Warning, Error</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetNotificationType()</span></td>
+                <td>Gets the current notification type</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetBackgroundColor(hexColor STRING)</span></td>
+                <td>Sets the background color for the notification (hex format, e.g. #FF6600)</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetBackgroundColor()</span></td>
+                <td>Gets the current background color</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetTextColor(hexColor STRING)</span></td>
+                <td>Sets the text color for the notification (hex format)</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetTextColor()</span></td>
+                <td>Gets the current text color</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">DismissNotification()</span></td>
+                <td>Dismisses any currently visible notification</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetIsVisible()</span></td>
+                <td>Returns whether a notification is currently visible</td>
+                <td><code>BYTE</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">About()</span></td>
+                <td>Displays control name and version information in a MessageBox</td>
+                <td><code>void</code></td>
+            </tr>
+                </tbody>
+            </table>
+
+            <h2>Events</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Parameters</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+            <tr>
+                <td><span class="badge badge-event">NotificationShown</span></td>
+                <td><code>title STRING, message STRING</code></td>
+                <td>Fired when a notification is shown</td>
+            </tr>            <tr>
+                <td><span class="badge badge-event">NotificationDismissed</span></td>
+                <td><code>reason STRING</code></td>
+                <td>Fired when a notification is dismissed (auto-timeout or manual)</td>
+            </tr>            <tr>
+                <td><span class="badge badge-event">NotificationClicked</span></td>
+                <td><code>title STRING</code></td>
+                <td>Fired when the user clicks on the notification</td>
+            </tr>
+                </tbody>
+            </table>
+
+            <h2>Technical Specifications</h2>
+            <div class="section-card">
+                <p><strong>Technology Stack:</strong></p>
+                <div>
+                    <span class="tech-badge">.NET Framework 4.7.2</span>
+                    <span class="tech-badge">Win32 (x86)</span>
+                    <span class="tech-badge">RegFree COM</span>
+                    <span class="tech-badge">Apartment Threading</span>
+                </div>
+                <br><br>
+                <p><strong>COM Configuration:</strong></p>
+                <ul>
+                    <li><strong>ProgID:</strong> <code>sdk_popup.sdk_popup</code></li>
+                    <li><strong>Registration:</strong> Registration-Free (no registry modifications)</li>
+                    <li><strong>Threading Model:</strong> Apartment (STA)</li>
+                    <li><strong>Platform:</strong> x86 (32-bit) for Clarion compatibility</li>
+                </ul>
+            </div>
+
+            <h2>Additional Resources</h2>
+            <div class="section-card">
+                <p>The following files are provided with this control:</p>
+                <ul>
+                    <li><code>sdk_popup.methods</code> - Properties and methods reference with Clarion data types</li>
+                    <li><code>sdk_popup.events</code> - Event definitions with parameters</li>
+                    <li><code>sdk_popup.details</code> - Control metadata and ProgID information</li>
+                </ul>
+                <p>These files are automatically generated during the build process and provide accurate Clarion-specific implementation details.</p>
+            </div>
+
+            <div class="footer">
+                <p>Generated for Clarion Development</p>
+                <p>Registration-Free COM â€¢ No Registry Pollution â€¢ Clean Deployment</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
