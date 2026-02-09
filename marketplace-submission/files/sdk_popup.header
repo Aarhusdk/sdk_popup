@@ -7,7 +7,7 @@ Toast notification COM control for Clarion using DevExpress
 [DLL]
 sdk_popup
 [Version]
-1.0.3.0
+1.0.5.0
 [DllsToCopy]
 DevExpress.Data.Desktop.v25.1.dll
 DevExpress.Data.v25.1.dll

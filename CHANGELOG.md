@@ -6,7 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [1.0.3] - 2026-02-09
+## [1.0.5] - 2026-02-09
+
+### Fixed
+- Center positioning now works correctly (TopCenter, BottomCenter, Center) - uses deferred BeginInvoke to override DevExpress internal positioning
 
 ### Added
 - Sound support: SetSoundEnabled/GetSoundEnabled, SetSoundPath/GetSoundPath (system sound or custom WAV)

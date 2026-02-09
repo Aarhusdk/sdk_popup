@@ -646,31 +646,39 @@ namespace sdk_popup
                     e.AlertForm.Opacity = _opacity / 100.0;
                 }
 
-                // Apply center positioning
+                // Apply center positioning - deferred via BeginInvoke because
+                // DevExpress applies its own FormLocation AFTER this event fires
                 string pos = (_position ?? "").ToLower();
                 if (pos == "center" || pos == "topcenter" || pos == "bottomcenter")
                 {
-                    Screen screen = Screen.FromControl(this);
-                    Rectangle workArea = screen.WorkingArea;
-                    int formWidth = e.AlertForm.Width;
-                    int formHeight = e.AlertForm.Height;
-                    int x = workArea.Left + (workArea.Width - formWidth) / 2;
-                    int y;
+                    var alertForm = e.AlertForm;
+                    var capturedPos = pos;
+                    alertForm.BeginInvoke(new Action(() =>
+                    {
+                        try
+                        {
+                            Screen screen = Screen.PrimaryScreen;
+                            Rectangle workArea = screen.WorkingArea;
+                            int x = workArea.Left + (workArea.Width - alertForm.Width) / 2;
+                            int y;
 
-                    if (pos == "center")
-                    {
-                        y = workArea.Top + (workArea.Height - formHeight) / 2;
-                    }
-                    else if (pos == "topcenter")
-                    {
-                        y = workArea.Top + 10;
-                    }
-                    else // bottomcenter
-                    {
-                        y = workArea.Bottom - formHeight - 10;
-                    }
+                            if (capturedPos == "center")
+                            {
+                                y = workArea.Top + (workArea.Height - alertForm.Height) / 2;
+                            }
+                            else if (capturedPos == "topcenter")
+                            {
+                                y = workArea.Top + 10;
+                            }
+                            else // bottomcenter
+                            {
+                                y = workArea.Bottom - alertForm.Height - 10;
+                            }
 
-                    e.AlertForm.Location = new Point(x, y);
+                            alertForm.Location = new Point(x, y);
+                        }
+                        catch { }
+                    }));
                 }
             }
             catch { }
