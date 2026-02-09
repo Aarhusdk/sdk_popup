@@ -1,6 +1,8 @@
 using System;
 using System.ComponentModel;
 using System.Drawing;
+using System.IO;
+using System.Media;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using DevExpress.XtraBars.Alerter;
@@ -28,7 +30,13 @@ namespace sdk_popup
         private string _notificationType = "Info";
         private string _backgroundColor = "";
         private string _textColor = "";
+        private string _imagePath = "";
+        private Image _customImage;
         private bool _isVisible;
+        private bool _soundEnabled;
+        private string _soundPath = "";
+        private int _opacity = 100;
+        private bool _pinned;
 
         #endregion
 
@@ -111,6 +119,7 @@ namespace sdk_popup
 
             _alertControl.AlertClick += AlertControl_AlertClick;
             _alertControl.FormClosing += AlertControl_FormClosing;
+            _alertControl.BeforeFormShow += AlertControl_BeforeFormShow;
 
             ApplyPosition();
         }
@@ -314,6 +323,55 @@ namespace sdk_popup
         }
 
         /// <summary>
+        /// Sets the image from a file path (PNG, JPG, BMP, ICO)
+        /// </summary>
+        [ComVisible(true)]
+        [Description("Sets the image from a file path")]
+        public void SetImagePath(string filePath)
+        {
+            try
+            {
+                _imagePath = filePath ?? "";
+                if (!string.IsNullOrEmpty(_imagePath) && File.Exists(_imagePath))
+                {
+                    // Load image from file without locking it
+                    using (var stream = new FileStream(_imagePath, FileMode.Open, FileAccess.Read))
+                    {
+                        _customImage?.Dispose();
+                        _customImage = Image.FromStream(stream);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup SetImagePath error: {ex.Message}");
+                _customImage = null;
+            }
+        }
+
+        /// <summary>
+        /// Gets the current image file path
+        /// </summary>
+        [ComVisible(true)]
+        [Description("Gets the current image file path")]
+        public string GetImagePath()
+        {
+            return _imagePath ?? "";
+        }
+
+        /// <summary>
+        /// Clears the custom image, reverting to the notification type icon
+        /// </summary>
+        [ComVisible(true)]
+        [Description("Clears the custom image")]
+        public void ClearImage()
+        {
+            _imagePath = "";
+            _customImage?.Dispose();
+            _customImage = null;
+        }
+
+        /// <summary>
         /// Dismisses any currently visible notification
         /// </summary>
         [ComVisible(true)]
@@ -374,6 +432,68 @@ namespace sdk_popup
             catch { }
         }
 
+        // --- Sound ---
+
+        [ComVisible(true)]
+        [Description("Enables or disables playing a sound when a notification is shown")]
+        public void SetSoundEnabled(bool enabled)
+        {
+            _soundEnabled = enabled;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets whether sound is enabled")]
+        public bool GetSoundEnabled()
+        {
+            return _soundEnabled;
+        }
+
+        [ComVisible(true)]
+        [Description("Sets a custom WAV file path for the notification sound")]
+        public void SetSoundPath(string wavFilePath)
+        {
+            _soundPath = wavFilePath ?? "";
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the current custom WAV file path")]
+        public string GetSoundPath()
+        {
+            return _soundPath ?? "";
+        }
+
+        // --- Opacity ---
+
+        [ComVisible(true)]
+        [Description("Sets the notification opacity (0-100, where 100 is fully opaque)")]
+        public void SetOpacity(int percent)
+        {
+            _opacity = Math.Max(10, Math.Min(100, percent));
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the current notification opacity (0-100)")]
+        public int GetOpacity()
+        {
+            return _opacity;
+        }
+
+        // --- Sticky/Pinned ---
+
+        [ComVisible(true)]
+        [Description("Sets whether the notification stays visible until manually dismissed")]
+        public void SetPinned(bool pinned)
+        {
+            _pinned = pinned;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets whether notifications are pinned (sticky)")]
+        public bool GetPinned()
+        {
+            return _pinned;
+        }
+
         #endregion
 
         #region Private Methods
@@ -389,12 +509,19 @@ namespace sdk_popup
             {
                 var info = new AlertInfo(_title, _message);
 
-                // Apply notification type icon
-                info.Image = GetNotificationIcon();
+                // Apply custom image or notification type icon
+                info.Image = _customImage ?? GetNotificationIcon();
 
                 // Apply custom appearance
-                _alertControl.AutoFormDelay = _duration;
+                _alertControl.AutoFormDelay = _pinned ? int.MaxValue : _duration;
+                _alertControl.ShowPinButton = _pinned;
                 ApplyPosition();
+
+                // Play sound
+                if (_soundEnabled)
+                {
+                    PlayNotificationSound();
+                }
 
                 // Show alert relative to the owning form
                 Form ownerForm = FindForm();
@@ -443,7 +570,33 @@ namespace sdk_popup
         }
 
         /// <summary>
-        /// Applies the current position setting to the AlertControl
+        /// Plays the notification sound (custom WAV or system default)
+        /// </summary>
+        private void PlayNotificationSound()
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(_soundPath) && File.Exists(_soundPath))
+                {
+                    using (var player = new SoundPlayer(_soundPath))
+                    {
+                        player.Play();
+                    }
+                }
+                else
+                {
+                    SystemSounds.Asterisk.Play();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup PlayNotificationSound error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Applies the current position setting to the AlertControl.
+        /// For "Center" position, we use BeforeFormShow to reposition the alert form.
         /// </summary>
         private void ApplyPosition()
         {
@@ -455,7 +608,7 @@ namespace sdk_popup
                     _alertControl.FormLocation = AlertFormLocation.TopLeft;
                     break;
                 case "topcenter":
-                    _alertControl.FormLocation = AlertFormLocation.TopLeft;
+                    _alertControl.FormLocation = AlertFormLocation.TopRight;
                     break;
                 case "topright":
                     _alertControl.FormLocation = AlertFormLocation.TopRight;
@@ -464,10 +617,14 @@ namespace sdk_popup
                     _alertControl.FormLocation = AlertFormLocation.BottomLeft;
                     break;
                 case "bottomcenter":
-                    _alertControl.FormLocation = AlertFormLocation.BottomLeft;
+                    _alertControl.FormLocation = AlertFormLocation.BottomRight;
                     break;
                 case "bottomright":
                     _alertControl.FormLocation = AlertFormLocation.BottomRight;
+                    break;
+                case "center":
+                    // Use TopRight as base; BeforeFormShow will reposition to center
+                    _alertControl.FormLocation = AlertFormLocation.TopRight;
                     break;
                 default:
                     _alertControl.FormLocation = AlertFormLocation.TopRight;
@@ -478,6 +635,46 @@ namespace sdk_popup
         #endregion
 
         #region Event Handlers
+
+        private void AlertControl_BeforeFormShow(object sender, AlertFormEventArgs e)
+        {
+            try
+            {
+                // Apply opacity
+                if (_opacity < 100)
+                {
+                    e.AlertForm.Opacity = _opacity / 100.0;
+                }
+
+                // Apply center positioning
+                string pos = (_position ?? "").ToLower();
+                if (pos == "center" || pos == "topcenter" || pos == "bottomcenter")
+                {
+                    Screen screen = Screen.FromControl(this);
+                    Rectangle workArea = screen.WorkingArea;
+                    int formWidth = e.AlertForm.Width;
+                    int formHeight = e.AlertForm.Height;
+                    int x = workArea.Left + (workArea.Width - formWidth) / 2;
+                    int y;
+
+                    if (pos == "center")
+                    {
+                        y = workArea.Top + (workArea.Height - formHeight) / 2;
+                    }
+                    else if (pos == "topcenter")
+                    {
+                        y = workArea.Top + 10;
+                    }
+                    else // bottomcenter
+                    {
+                        y = workArea.Bottom - formHeight - 10;
+                    }
+
+                    e.AlertForm.Location = new Point(x, y);
+                }
+            }
+            catch { }
+        }
 
         private void AlertControl_AlertClick(object sender, AlertClickEventArgs e)
         {
@@ -549,10 +746,14 @@ namespace sdk_popup
         {
             if (disposing)
             {
+                _customImage?.Dispose();
+                _customImage = null;
+
                 if (_alertControl != null)
                 {
                     _alertControl.AlertClick -= AlertControl_AlertClick;
                     _alertControl.FormClosing -= AlertControl_FormClosing;
+                    _alertControl.BeforeFormShow -= AlertControl_BeforeFormShow;
                     _alertControl.Dispose();
                     _alertControl = null;
                 }

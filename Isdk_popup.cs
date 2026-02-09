@@ -61,7 +61,7 @@ namespace sdk_popup
         int GetDuration();
 
         /// <summary>
-        /// Sets the notification position: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight
+        /// Sets the notification position: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight, Center
         /// </summary>
         [DispId(9)]
         void SetPosition(string position);
@@ -109,6 +109,24 @@ namespace sdk_popup
         string GetTextColor();
 
         /// <summary>
+        /// Sets the image from a file path (PNG, JPG, BMP, ICO)
+        /// </summary>
+        [DispId(20)]
+        void SetImagePath(string filePath);
+
+        /// <summary>
+        /// Gets the current image file path
+        /// </summary>
+        [DispId(21)]
+        string GetImagePath();
+
+        /// <summary>
+        /// Clears the custom image, reverting to the notification type icon
+        /// </summary>
+        [DispId(22)]
+        void ClearImage();
+
+        /// <summary>
         /// Dismisses any currently visible notification
         /// </summary>
         [DispId(17)]
@@ -125,5 +143,59 @@ namespace sdk_popup
         /// </summary>
         [DispId(19)]
         void About();
+
+        // --- Sound ---
+
+        /// <summary>
+        /// Enables or disables playing a sound when a notification is shown
+        /// </summary>
+        [DispId(23)]
+        void SetSoundEnabled(bool enabled);
+
+        /// <summary>
+        /// Gets whether sound is enabled
+        /// </summary>
+        [DispId(24)]
+        bool GetSoundEnabled();
+
+        /// <summary>
+        /// Sets a custom WAV file path for the notification sound. Empty string uses the default system sound.
+        /// </summary>
+        [DispId(25)]
+        void SetSoundPath(string wavFilePath);
+
+        /// <summary>
+        /// Gets the current custom WAV file path
+        /// </summary>
+        [DispId(26)]
+        string GetSoundPath();
+
+        // --- Opacity ---
+
+        /// <summary>
+        /// Sets the notification opacity (0-100, where 100 is fully opaque). Default: 100
+        /// </summary>
+        [DispId(27)]
+        void SetOpacity(int percent);
+
+        /// <summary>
+        /// Gets the current notification opacity (0-100)
+        /// </summary>
+        [DispId(28)]
+        int GetOpacity();
+
+        // --- Sticky/Pinned ---
+
+        /// <summary>
+        /// Sets whether the notification stays visible until manually dismissed (true = sticky)
+        /// </summary>
+        [DispId(29)]
+        void SetPinned(bool pinned);
+
+        /// <summary>
+        /// Gets whether notifications are pinned (sticky)
+        /// </summary>
+        [DispId(30)]
+        bool GetPinned();
     }
 }
