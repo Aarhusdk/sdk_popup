@@ -1,0 +1,122 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- ClarionCOMHome: Path to global ClarionCOM installation. Falls back to %APPDATA%\ClarionCOM -->
+    <ClarionCOMHome Condition="'$(ClarionCOMHome)' == ''">$(APPDATA)\ClarionCOM</ClarionCOMHome>
+
+    <!-- Target Framework - must be .NET Framework 4.7.2 for COM support -->
+    <TargetFramework>net472</TargetFramework>
+
+    <!-- Enable Windows Forms (required for UserControl-based controls) -->
+    <UseWindowsForms>true</UseWindowsForms>
+
+    <!-- CRITICAL: Must be x86 for 32-bit Clarion -->
+    <PlatformTarget>x86</PlatformTarget>
+
+    <!-- Output as a library (DLL) -->
+    <OutputType>Library</OutputType>
+
+    <!-- Runtime identifier for 32-bit Windows -->
+    <RuntimeIdentifier>win-x86</RuntimeIdentifier>
+
+    <!-- Make assembly COM-visible -->
+    <ComVisible>true</ComVisible>
+
+    <!-- Use manual AssemblyInfo.cs -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <!-- CRITICAL: Exclude Template folder from compilation -->
+  <ItemGroup>
+    <Compile Remove="Template\**\*" />
+    <None Remove="Template\**\*" />
+    <Content Remove="Template\**\*" />
+    <EmbeddedResource Remove="Template\**\*" />
+  </ItemGroup>
+
+  <!-- DevExpress WinForms packages -->
+  <ItemGroup>
+    <PackageReference Include="DevExpress.Win" Version="24.*" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Deploy path structure: Clarion/accessory/bin and Clarion/accessory/resources -->
+    <ClarionDeployPath>$(ProjectDir)..\Clarion\</ClarionDeployPath>
+    <ClarionAccessoryPath>$(ClarionDeployPath)accessory\</ClarionAccessoryPath>
+    <ClarionBinPath>$(ClarionAccessoryPath)bin\</ClarionBinPath>
+    <ClarionResourcesPath>$(ClarionAccessoryPath)resources\</ClarionResourcesPath>
+  </PropertyGroup>
+
+  <!-- Deploy DLLs to Clarion/accessory/bin, manifest to Clarion/accessory/resources -->
+  <Target Name="DeployClarionFiles" AfterTargets="Build">
+    <ItemGroup>
+      <DllFiles Include="$(OutputPath)*.dll" />
+    </ItemGroup>
+
+    <!-- Create folder structure -->
+    <MakeDir Directories="$(ClarionBinPath)" Condition="!Exists('$(ClarionBinPath)')" />
+    <MakeDir Directories="$(ClarionResourcesPath)" Condition="!Exists('$(ClarionResourcesPath)')" />
+
+    <!-- Copy DLLs to accessory/bin/ -->
+    <Copy SourceFiles="@(DllFiles)"
+          DestinationFolder="$(ClarionBinPath)"
+          SkipUnchangedFiles="true" />
+
+    <!-- Copy manifest to accessory/resources/ -->
+    <Copy SourceFiles="$(ProjectDir)$(AssemblyName).manifest"
+          DestinationFolder="$(ClarionResourcesPath)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(ProjectDir)$(AssemblyName).manifest')" />
+
+    <Message Text="Deployed DLLs to $(ClarionBinPath)" Importance="high" />
+    <Message Text="Deployed manifest to $(ClarionResourcesPath)" Importance="high" />
+  </Target>
+
+  <!-- Generate Clarion metadata files using ClarionCOM scripts -->
+  <Target Name="GenerateClarionMetadata" AfterTargets="DeployClarionFiles">
+    <PropertyGroup>
+      <MetadataScriptPath>$(ClarionCOMHome)\scripts\GenerateClarionMetadata.ps1</MetadataScriptPath>
+      <MetadataProjectDir>$(ProjectDir.TrimEnd('\'))</MetadataProjectDir>
+      <MetadataDeployPath>$(ClarionResourcesPath.TrimEnd('\'))</MetadataDeployPath>
+    </PropertyGroup>
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command &quot;&amp; { &amp; '$(MetadataScriptPath)' -ProjectDir '$(MetadataProjectDir)' -AssemblyName '$(AssemblyName)' -ClarionDeployPath '$(MetadataDeployPath)' }&quot;" />
+    <Message Text="Generated Clarion metadata files to $(ClarionResourcesPath)" Importance="high" />
+  </Target>
+
+  <!-- Generate COM manifest file for RegFree COM -->
+  <Target Name="GenerateManifestFile" AfterTargets="GenerateClarionMetadata">
+    <PropertyGroup>
+      <ManifestSource>$(ProjectDir)$(AssemblyName).manifest</ManifestSource>
+      <ManifestDest>$(ClarionResourcesPath)$(AssemblyName).manifest</ManifestDest>
+    </PropertyGroup>
+    <Copy SourceFiles="$(ManifestSource)" DestinationFiles="$(ManifestDest)" SkipUnchangedFiles="false" />
+    <Message Text="Generated manifest file: $(ManifestDest)" Importance="high" />
+  </Target>
+
+  <!-- Parse COM interface files -->
+  <Target Name="ParseCOMInterface" AfterTargets="GenerateManifestFile">
+    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(ClarionCOMHome)\scripts\ParseCOMInterface.ps1&quot; -ProjectDir &quot;$(ProjectDir)&quot;" />
+    <Message Text="Parsed COM interface files for documentation" Importance="high" />
+  </Target>
+
+  <!-- Generate README.html documentation -->
+  <Target Name="GenerateReadmeHtml" AfterTargets="ParseCOMInterface">
+    <PropertyGroup>
+      <ReadmeFile>$(ClarionResourcesPath)readme_$(AssemblyName).html</ReadmeFile>
+      <ParsedDataFile>$(ProjectDir)ParsedInterface.json</ParsedDataFile>
+    </PropertyGroup>
+    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(ClarionCOMHome)\scripts\GenerateReadmeHTML.ps1&quot; -ParsedDataFile &quot;$(ParsedDataFile)&quot; -OutputFile &quot;$(ReadmeFile)&quot; -AssemblyName &quot;$(AssemblyName)&quot;" />
+    <Message Text="Generated README.html: $(ReadmeFile)" Importance="high" />
+  </Target>
+
+  <!-- AUTO-DEPLOY: Copy all files to Clarion installation -->
+  <Target Name="DeployToClarionInstallation" AfterTargets="GenerateReadmeHtml">
+    <PropertyGroup>
+      <CopyScript>$(ClarionCOMHome)\scripts\copy-to-clarion.ps1</CopyScript>
+      <ClarionEnvScript>$(ClarionCOMHome)\scripts\clarioncom-env.ps1</ClarionEnvScript>
+    </PropertyGroup>
+    <Exec Command="powershell -ExecutionPolicy Bypass -Command &quot;$clarionPath = &amp; '$(ClarionEnvScript)' clarion; if ($clarionPath -and $clarionPath -ne 'NOT_CONFIGURED') { &amp; '$(CopyScript)' -ProjectFolder '$(ClarionAccessoryPath.TrimEnd('\'))' -ClarionPath $clarionPath -Target 'accessory' } else { Write-Host 'Clarion path not configured - skipping auto-deploy. Run /ClarionCOM to configure.' -ForegroundColor Yellow }&quot;"
+          IgnoreExitCode="true" />
+  </Target>
+
+</Project>
