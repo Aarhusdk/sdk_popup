@@ -22,5 +22,5 @@ using System.Runtime.InteropServices;
 // Events GUID:    380BC3DF-AA92-49F2-AAB5-8DAEDF53F7F9 (Isdk_popupEvents.cs)
 // Class GUID:     543EDB99-F490-435D-9A2A-A9230A335041 (sdk_popupControl.cs)
 
-[assembly: AssemblyVersion("1.0.6.0")]
-[assembly: AssemblyFileVersion("1.0.6.0")]
+[assembly: AssemblyVersion("1.0.7.0")]
+[assembly: AssemblyFileVersion("1.0.7.0")]

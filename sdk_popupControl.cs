@@ -39,6 +39,8 @@ namespace sdk_popup
         private bool _pinned;
         private int _imageWidth;
         private int _imageHeight;
+        private Form _imageOnlyForm;
+        private Timer _imageOnlyTimer;
 
         #endregion
 
@@ -388,12 +390,17 @@ namespace sdk_popup
                     return;
                 }
 
+                // Close image-only form
+                CloseImageOnlyForm();
+
+                // Close alert forms
                 if (_alertControl != null)
                 {
                     _alertControl.AlertFormList.ForEach(f => f.Close());
-                    _isVisible = false;
-                    RaiseNotificationDismissed("Programmatic");
                 }
+
+                _isVisible = false;
+                RaiseNotificationDismissed("Programmatic");
             }
             catch (Exception ex)
             {
@@ -521,7 +528,7 @@ namespace sdk_popup
         }
 
         [ComVisible(true)]
-        [Description("Shows a notification with only an image, no title or message")]
+        [Description("Shows a notification with only an image - no background, title, or message")]
         public void ShowImageNotification()
         {
             try
@@ -532,9 +539,69 @@ namespace sdk_popup
                     return;
                 }
 
-                _title = " ";
-                _message = " ";
-                ShowAlert();
+                // Close any previous image-only form
+                CloseImageOnlyForm();
+
+                Image img = GetDisplayImage();
+                if (img == null) return;
+
+                // Create borderless transparent form
+                _imageOnlyForm = new Form();
+                _imageOnlyForm.FormBorderStyle = FormBorderStyle.None;
+                _imageOnlyForm.ShowInTaskbar = false;
+                _imageOnlyForm.TopMost = true;
+                _imageOnlyForm.StartPosition = FormStartPosition.Manual;
+                _imageOnlyForm.BackColor = Color.Magenta;
+                _imageOnlyForm.TransparencyKey = Color.Magenta;
+                _imageOnlyForm.Size = new Size(img.Width, img.Height);
+
+                if (_opacity < 100)
+                {
+                    _imageOnlyForm.Opacity = _opacity / 100.0;
+                }
+
+                // Add image
+                var pictureBox = new PictureBox();
+                pictureBox.Image = img;
+                pictureBox.SizeMode = PictureBoxSizeMode.Zoom;
+                pictureBox.Size = new Size(img.Width, img.Height);
+                pictureBox.Location = new Point(0, 0);
+                pictureBox.BackColor = Color.Transparent;
+                pictureBox.Cursor = Cursors.Hand;
+                _imageOnlyForm.Controls.Add(pictureBox);
+
+                // Position the form
+                PositionImageOnlyForm(_imageOnlyForm);
+
+                // Click to dismiss
+                pictureBox.Click += (s, e) =>
+                {
+                    CloseImageOnlyForm();
+                    RaiseNotificationClicked("");
+                };
+
+                // Auto-close timer (unless pinned)
+                if (!_pinned)
+                {
+                    _imageOnlyTimer = new Timer();
+                    _imageOnlyTimer.Interval = _duration;
+                    _imageOnlyTimer.Tick += (s, e) =>
+                    {
+                        CloseImageOnlyForm();
+                        RaiseNotificationDismissed("Timeout");
+                    };
+                    _imageOnlyTimer.Start();
+                }
+
+                // Play sound
+                if (_soundEnabled)
+                {
+                    PlayNotificationSound();
+                }
+
+                _imageOnlyForm.Show();
+                _isVisible = true;
+                RaiseNotificationShown("", "");
             }
             catch (Exception ex)
             {
@@ -604,6 +671,75 @@ namespace sdk_popup
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.WriteLine($"sdk_popup ShowAlert error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Positions the image-only form according to the current position setting
+        /// </summary>
+        private void PositionImageOnlyForm(Form form)
+        {
+            Screen screen = Screen.PrimaryScreen;
+            Rectangle workArea = screen.WorkingArea;
+            int x, y;
+
+            switch ((_position ?? "TopRight").ToLower())
+            {
+                case "topleft":
+                    x = workArea.Left + 10;
+                    y = workArea.Top + 10;
+                    break;
+                case "topcenter":
+                    x = workArea.Left + (workArea.Width - form.Width) / 2;
+                    y = workArea.Top + 10;
+                    break;
+                case "topright":
+                    x = workArea.Right - form.Width - 10;
+                    y = workArea.Top + 10;
+                    break;
+                case "bottomleft":
+                    x = workArea.Left + 10;
+                    y = workArea.Bottom - form.Height - 10;
+                    break;
+                case "bottomcenter":
+                    x = workArea.Left + (workArea.Width - form.Width) / 2;
+                    y = workArea.Bottom - form.Height - 10;
+                    break;
+                case "bottomright":
+                    x = workArea.Right - form.Width - 10;
+                    y = workArea.Bottom - form.Height - 10;
+                    break;
+                case "center":
+                    x = workArea.Left + (workArea.Width - form.Width) / 2;
+                    y = workArea.Top + (workArea.Height - form.Height) / 2;
+                    break;
+                default:
+                    x = workArea.Right - form.Width - 10;
+                    y = workArea.Top + 10;
+                    break;
+            }
+
+            form.Location = new Point(x, y);
+        }
+
+        /// <summary>
+        /// Closes and disposes the image-only form
+        /// </summary>
+        private void CloseImageOnlyForm()
+        {
+            if (_imageOnlyTimer != null)
+            {
+                _imageOnlyTimer.Stop();
+                _imageOnlyTimer.Dispose();
+                _imageOnlyTimer = null;
+            }
+
+            if (_imageOnlyForm != null && !_imageOnlyForm.IsDisposed)
+            {
+                _imageOnlyForm.Close();
+                _imageOnlyForm.Dispose();
+                _imageOnlyForm = null;
+                _isVisible = false;
             }
         }
 
@@ -850,6 +986,8 @@ namespace sdk_popup
         {
             if (disposing)
             {
+                CloseImageOnlyForm();
+
                 _customImage?.Dispose();
                 _customImage = null;
 
