@@ -188,7 +188,7 @@ namespace sdk_popup
         [Description("Sets the notification title text")]
         public void SetTitle(string title)
         {
-            _title = title ?? "Notification";
+            _title = (title ?? "Notification").Trim().Trim('"');
         }
 
         /// <summary>
@@ -208,7 +208,7 @@ namespace sdk_popup
         [Description("Sets the notification message text")]
         public void SetMessage(string message)
         {
-            _message = message ?? "";
+            _message = (message ?? "").Trim().Trim('"');
         }
 
         /// <summary>
@@ -252,7 +252,7 @@ namespace sdk_popup
         [Description("Sets the notification position")]
         public void SetPosition(string position)
         {
-            _position = position ?? "TopRight";
+            _position = (position ?? "TopRight").Trim().Trim('"');
             ApplyPosition();
         }
 
@@ -273,7 +273,7 @@ namespace sdk_popup
         [Description("Sets the notification type")]
         public void SetNotificationType(string notificationType)
         {
-            _notificationType = notificationType ?? "Info";
+            _notificationType = (notificationType ?? "Info").Trim().Trim('"');
         }
 
         /// <summary>
@@ -293,7 +293,7 @@ namespace sdk_popup
         [Description("Sets the background color for the notification")]
         public void SetBackgroundColor(string hexColor)
         {
-            _backgroundColor = hexColor ?? "";
+            _backgroundColor = (hexColor ?? "").Trim().Trim('"');
         }
 
         /// <summary>
@@ -313,7 +313,7 @@ namespace sdk_popup
         [Description("Sets the text color for the notification")]
         public void SetTextColor(string hexColor)
         {
-            _textColor = hexColor ?? "";
+            _textColor = (hexColor ?? "").Trim().Trim('"');
         }
 
         /// <summary>
@@ -335,7 +335,7 @@ namespace sdk_popup
         {
             try
             {
-                _imagePath = filePath ?? "";
+                _imagePath = (filePath ?? "").Trim().Trim('"');
                 if (!string.IsNullOrEmpty(_imagePath) && File.Exists(_imagePath))
                 {
                     // Load image from file without locking it
@@ -461,7 +461,7 @@ namespace sdk_popup
         [Description("Sets a custom WAV file path for the notification sound")]
         public void SetSoundPath(string wavFilePath)
         {
-            _soundPath = wavFilePath ?? "";
+            _soundPath = (wavFilePath ?? "").Trim().Trim('"');
         }
 
         [ComVisible(true)]
