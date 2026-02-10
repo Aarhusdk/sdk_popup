@@ -545,20 +545,41 @@ namespace sdk_popup
                 Image img = GetDisplayImage();
                 if (img == null) return;
 
-                // Create a borderless form shaped exactly to the image
-                _imageOnlyForm = new ImageOnlyForm(img);
+                // Unique transparency color (unlikely to appear in any image)
+                var transKey = Color.FromArgb(1, 0, 1);
+
+                // Create borderless form
+                _imageOnlyForm = new Form();
+                _imageOnlyForm.FormBorderStyle = FormBorderStyle.None;
+                _imageOnlyForm.ShowInTaskbar = false;
+                _imageOnlyForm.TopMost = true;
+                _imageOnlyForm.StartPosition = FormStartPosition.Manual;
+                _imageOnlyForm.AllowTransparency = true;
+                _imageOnlyForm.BackColor = transKey;
+                _imageOnlyForm.TransparencyKey = transKey;
 
                 if (_opacity < 100)
                 {
                     _imageOnlyForm.Opacity = _opacity / 100.0;
                 }
 
-                // Position the form
+                // PictureBox fills entire form - no gaps
+                var pb = new PictureBox();
+                pb.Image = img;
+                pb.BackColor = transKey;
+                pb.Dock = DockStyle.Fill;
+                pb.SizeMode = PictureBoxSizeMode.StretchImage;
+                pb.Cursor = Cursors.Hand;
+                _imageOnlyForm.Controls.Add(pb);
+
+                // ClientSize = exact image dimensions (no border padding)
                 _imageOnlyForm.ClientSize = new Size(img.Width, img.Height);
+
+                // Position the form
                 PositionImageOnlyForm(_imageOnlyForm);
 
                 // Click to dismiss
-                _imageOnlyForm.Click += (s, e) =>
+                pb.Click += (s, e) =>
                 {
                     CloseImageOnlyForm();
                     RaiseNotificationClicked("");
@@ -991,133 +1012,4 @@ namespace sdk_popup
         #endregion
     }
 
-    /// <summary>
-    /// Borderless form that renders an image with per-pixel alpha transparency.
-    /// Uses UpdateLayeredWindow to avoid TransparencyKey artifacts.
-    /// </summary>
-    internal class ImageOnlyForm : Form
-    {
-        [DllImport("user32.dll", ExactSpelling = true, SetLastError = true)]
-        private static extern bool UpdateLayeredWindow(IntPtr hwnd, IntPtr hdcDst,
-            ref Point pptDst, ref Size psize, IntPtr hdcSrc, ref Point pptSrc,
-            int crKey, ref BLENDFUNCTION pblend, int dwFlags);
-
-        [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        private static extern IntPtr CreateCompatibleDC(IntPtr hDC);
-
-        [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        private static extern bool DeleteDC(IntPtr hdc);
-
-        [DllImport("gdi32.dll", ExactSpelling = true)]
-        private static extern IntPtr SelectObject(IntPtr hDC, IntPtr hObject);
-
-        [DllImport("gdi32.dll", ExactSpelling = true, SetLastError = true)]
-        private static extern bool DeleteObject(IntPtr hObject);
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct BLENDFUNCTION
-        {
-            public byte BlendOp;
-            public byte BlendFlags;
-            public byte SourceConstantAlpha;
-            public byte AlphaFormat;
-        }
-
-        private const int ULW_ALPHA = 0x00000002;
-        private const byte AC_SRC_OVER = 0x00;
-        private const byte AC_SRC_ALPHA = 0x01;
-        private const int WS_EX_LAYERED = 0x80000;
-        private const int WS_EX_TOPMOST = 0x00000008;
-        private const int WS_EX_TOOLWINDOW = 0x00000080;
-
-        private readonly Bitmap _bitmap;
-
-        public ImageOnlyForm(Image image)
-        {
-            // Convert image to 32bpp ARGB bitmap for per-pixel alpha
-            _bitmap = new Bitmap(image.Width, image.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-            using (var g = Graphics.FromImage(_bitmap))
-            {
-                g.Clear(Color.Transparent);
-                g.DrawImage(image, 0, 0, image.Width, image.Height);
-            }
-
-            FormBorderStyle = FormBorderStyle.None;
-            ShowInTaskbar = false;
-            StartPosition = FormStartPosition.Manual;
-            ClientSize = new Size(_bitmap.Width, _bitmap.Height);
-            Cursor = Cursors.Hand;
-        }
-
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                CreateParams cp = base.CreateParams;
-                cp.ExStyle |= WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW;
-                return cp;
-            }
-        }
-
-        protected override void OnShown(EventArgs e)
-        {
-            base.OnShown(e);
-            SetBitmap(_bitmap);
-        }
-
-        private void SetBitmap(Bitmap bitmap)
-        {
-            IntPtr screenDc = IntPtr.Zero;
-            IntPtr memDc = IntPtr.Zero;
-            IntPtr hBitmap = IntPtr.Zero;
-            IntPtr oldBitmap = IntPtr.Zero;
-
-            try
-            {
-                screenDc = NativeMethods.GetDC(IntPtr.Zero);
-                memDc = CreateCompatibleDC(screenDc);
-                hBitmap = bitmap.GetHbitmap(Color.FromArgb(0));
-                oldBitmap = SelectObject(memDc, hBitmap);
-
-                var size = new Size(bitmap.Width, bitmap.Height);
-                var pointSource = new Point(0, 0);
-                var topPos = new Point(Left, Top);
-                var blend = new BLENDFUNCTION
-                {
-                    BlendOp = AC_SRC_OVER,
-                    BlendFlags = 0,
-                    SourceConstantAlpha = 255,
-                    AlphaFormat = AC_SRC_ALPHA
-                };
-
-                UpdateLayeredWindow(Handle, screenDc, ref topPos, ref size,
-                    memDc, ref pointSource, 0, ref blend, ULW_ALPHA);
-            }
-            finally
-            {
-                if (oldBitmap != IntPtr.Zero) SelectObject(memDc, oldBitmap);
-                if (hBitmap != IntPtr.Zero) DeleteObject(hBitmap);
-                if (memDc != IntPtr.Zero) DeleteDC(memDc);
-                if (screenDc != IntPtr.Zero) NativeMethods.ReleaseDC(IntPtr.Zero, screenDc);
-            }
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _bitmap?.Dispose();
-            }
-            base.Dispose(disposing);
-        }
-
-        private static class NativeMethods
-        {
-            [DllImport("user32.dll")]
-            public static extern IntPtr GetDC(IntPtr hWnd);
-
-            [DllImport("user32.dll")]
-            public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
-        }
-    }
 }
