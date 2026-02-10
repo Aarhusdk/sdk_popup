@@ -197,5 +197,32 @@ namespace sdk_popup
         /// </summary>
         [DispId(30)]
         bool GetPinned();
+
+        // --- Image Size ---
+
+        /// <summary>
+        /// Sets the display size for the notification image in pixels. 0,0 = original size.
+        /// </summary>
+        [DispId(31)]
+        void SetImageSize(int width, int height);
+
+        /// <summary>
+        /// Gets the configured image display width (0 = original)
+        /// </summary>
+        [DispId(32)]
+        int GetImageWidth();
+
+        /// <summary>
+        /// Gets the configured image display height (0 = original)
+        /// </summary>
+        [DispId(33)]
+        int GetImageHeight();
+
+        /// <summary>
+        /// Shows a notification with only an image (no title or message text).
+        /// Call SetImagePath first to set the image.
+        /// </summary>
+        [DispId(34)]
+        void ShowImageNotification();
     }
 }

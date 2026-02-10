@@ -37,6 +37,8 @@ namespace sdk_popup
         private string _soundPath = "";
         private int _opacity = 100;
         private bool _pinned;
+        private int _imageWidth;
+        private int _imageHeight;
 
         #endregion
 
@@ -494,6 +496,52 @@ namespace sdk_popup
             return _pinned;
         }
 
+        // --- Image Size ---
+
+        [ComVisible(true)]
+        [Description("Sets the display size for the notification image in pixels. 0,0 = original size.")]
+        public void SetImageSize(int width, int height)
+        {
+            _imageWidth = Math.Max(0, width);
+            _imageHeight = Math.Max(0, height);
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the configured image display width")]
+        public int GetImageWidth()
+        {
+            return _imageWidth;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the configured image display height")]
+        public int GetImageHeight()
+        {
+            return _imageHeight;
+        }
+
+        [ComVisible(true)]
+        [Description("Shows a notification with only an image, no title or message")]
+        public void ShowImageNotification()
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(ShowImageNotification));
+                    return;
+                }
+
+                _title = " ";
+                _message = " ";
+                ShowAlert();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowImageNotification error: {ex.Message}");
+            }
+        }
+
         #endregion
 
         #region Private Methods
@@ -509,13 +557,22 @@ namespace sdk_popup
             {
                 var info = new AlertInfo(_title, _message);
 
-                // Apply custom image or notification type icon
-                info.Image = _customImage ?? GetNotificationIcon();
+                // Apply custom image or notification type icon, with optional resize
+                info.Image = GetDisplayImage();
 
                 // Apply custom appearance
                 _alertControl.AutoFormDelay = _pinned ? int.MaxValue : _duration;
                 _alertControl.ShowPinButton = _pinned;
                 ApplyPosition();
+
+                // Determine if center repositioning is needed
+                string pos = (_position ?? "").ToLower();
+                bool needsReposition = (pos == "center" || pos == "topcenter" || pos == "bottomcenter");
+
+                // Disable animation for center positions - animation overrides our position
+                _alertControl.FormShowingEffect = needsReposition
+                    ? AlertFormShowingEffect.None
+                    : AlertFormShowingEffect.FadeIn;
 
                 // Play sound
                 if (_soundEnabled)
@@ -523,24 +580,98 @@ namespace sdk_popup
                     PlayNotificationSound();
                 }
 
-                // Show alert relative to the owning form
+                // Show alert
                 Form ownerForm = FindForm();
-                if (ownerForm != null)
-                {
-                    _alertControl.Show(ownerForm, info);
-                }
-                else
-                {
-                    _alertControl.Show(null, info);
-                }
+                _alertControl.Show(ownerForm, info);
 
                 _isVisible = true;
                 RaiseNotificationShown(_title, _message);
+
+                // Reposition AFTER Show() for center positions
+                if (needsReposition)
+                {
+                    var capturedPos = pos;
+                    BeginInvoke(new Action(() =>
+                    {
+                        try
+                        {
+                            RepositionAlertForms(capturedPos);
+                        }
+                        catch { }
+                    }));
+                }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.WriteLine($"sdk_popup ShowAlert error: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Repositions all active alert forms to center positions.
+        /// Called via BeginInvoke after Show() so DevExpress has finished its positioning.
+        /// </summary>
+        private void RepositionAlertForms(string pos)
+        {
+            if (_alertControl == null) return;
+
+            var forms = _alertControl.AlertFormList;
+            if (forms == null || forms.Count == 0) return;
+
+            Screen screen = Screen.PrimaryScreen;
+            Rectangle workArea = screen.WorkingArea;
+
+            for (int i = 0; i < forms.Count; i++)
+            {
+                var alertForm = forms[i];
+                int x = workArea.Left + (workArea.Width - alertForm.Width) / 2;
+                int y;
+
+                if (pos == "center")
+                {
+                    y = workArea.Top + (workArea.Height - alertForm.Height) / 2;
+                }
+                else if (pos == "topcenter")
+                {
+                    y = workArea.Top + 10;
+                }
+                else // bottomcenter
+                {
+                    y = workArea.Bottom - alertForm.Height - 10;
+                }
+
+                alertForm.Location = new Point(x, y);
+            }
+        }
+
+        /// <summary>
+        /// Gets the image to display, resized if SetImageSize was called
+        /// </summary>
+        private Image GetDisplayImage()
+        {
+            Image source = _customImage ?? GetNotificationIcon();
+            if (source == null) return null;
+
+            // Resize if custom dimensions are set
+            if (_imageWidth > 0 && _imageHeight > 0)
+            {
+                try
+                {
+                    var resized = new Bitmap(_imageWidth, _imageHeight);
+                    using (var g = Graphics.FromImage(resized))
+                    {
+                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                        g.DrawImage(source, 0, 0, _imageWidth, _imageHeight);
+                    }
+                    return resized;
+                }
+                catch
+                {
+                    return source;
+                }
+            }
+
+            return source;
         }
 
         /// <summary>
@@ -644,41 +775,6 @@ namespace sdk_popup
                 if (_opacity < 100)
                 {
                     e.AlertForm.Opacity = _opacity / 100.0;
-                }
-
-                // Apply center positioning - deferred via BeginInvoke because
-                // DevExpress applies its own FormLocation AFTER this event fires
-                string pos = (_position ?? "").ToLower();
-                if (pos == "center" || pos == "topcenter" || pos == "bottomcenter")
-                {
-                    var alertForm = e.AlertForm;
-                    var capturedPos = pos;
-                    alertForm.BeginInvoke(new Action(() =>
-                    {
-                        try
-                        {
-                            Screen screen = Screen.PrimaryScreen;
-                            Rectangle workArea = screen.WorkingArea;
-                            int x = workArea.Left + (workArea.Width - alertForm.Width) / 2;
-                            int y;
-
-                            if (capturedPos == "center")
-                            {
-                                y = workArea.Top + (workArea.Height - alertForm.Height) / 2;
-                            }
-                            else if (capturedPos == "topcenter")
-                            {
-                                y = workArea.Top + 10;
-                            }
-                            else // bottomcenter
-                            {
-                                y = workArea.Bottom - alertForm.Height - 10;
-                            }
-
-                            alertForm.Location = new Point(x, y);
-                        }
-                        catch { }
-                    }));
                 }
             }
             catch { }
