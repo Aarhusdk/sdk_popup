@@ -238,3 +238,35 @@ GetPinned
 [MethodDescription]
 Gets whether notifications are pinned (sticky)
 
+[Method]
+SetImageSize
+[MethodDescription]
+Sets the display size for the notification image in pixels. 0,0 = original size.
+[Parameter]
+width
+[ParameterType]
+LONG
+[ParameterDescription]
+The width parameter.
+[Parameter]
+height
+[ParameterType]
+LONG
+[ParameterDescription]
+The height parameter.
+
+[Method]
+GetImageWidth
+[MethodDescription]
+Gets the configured image display width (0 = original)
+
+[Method]
+GetImageHeight
+[MethodDescription]
+Gets the configured image display height (0 = original)
+
+[Method]
+ShowImageNotification
+[MethodDescription]
+Shows a notification with only an image (no title or message text). Call SetImagePath first to set the image.
+

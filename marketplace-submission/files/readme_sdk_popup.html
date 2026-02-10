@@ -321,6 +321,22 @@
                 <td><span class="badge badge-method">GetPinned()</span></td>
                 <td>Gets whether notifications are pinned (sticky)</td>
                 <td><code>BYTE</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetImageSize(width LONG, height LONG)</span></td>
+                <td>Sets the display size for the notification image in pixels. 0,0 = original size.</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetImageWidth()</span></td>
+                <td>Gets the configured image display width (0 = original)</td>
+                <td><code>LONG</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetImageHeight()</span></td>
+                <td>Gets the configured image display height (0 = original)</td>
+                <td><code>LONG</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">ShowImageNotification()</span></td>
+                <td>Shows a notification with only an image (no title or message text). Call SetImagePath first to set the image.</td>
+                <td><code>void</code></td>
             </tr>
                 </tbody>
             </table>

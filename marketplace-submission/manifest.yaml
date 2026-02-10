@@ -1,6 +1,6 @@
 name: "sdk_popup"
-version: "1.0.5.0"
-description: "Toast notification COM control for Clarion using DevExpress AlertControl. Displays popup/toast notifications with configurable message, title, duration, position, notification type, sound, opacity, and pinned (sticky) mode."
+version: "1.1.0.0"
+description: "Toast notification COM control for Clarion using DevExpress AlertControl. Displays popup/toast notifications with configurable message, title, duration, position, notification type, sound, opacity, pinned (sticky) mode, custom image sizing, and image-only floating notifications."
 short_description: "Toast notification COM control for Clarion using DevExpress AlertControl."
 prog_id: "sdk_popup.sdk_popupControl"
 assembly_name: "sdk_popup"
@@ -22,9 +22,12 @@ compatibility:
     tested_versions: ["11.0", "12.0"]
 
 category: "UI Controls"
-tags: ["popup", "notification", "alert", "toast", "sound", "devexpress"]
+tags: ["popup", "notification", "alert", "toast", "sound", "devexpress", "image"]
 
 changelog:
+  - version: "1.1.0.0"
+    date: "2026-02-09"
+    changes: "Add image size control, image-only floating notifications (transparent, no chrome). Improve center positioning reliability."
   - version: "1.0.5.0"
     date: "2026-02-09"
     changes: "Fix center positioning. Add sound, opacity, and pinned notification features. Add custom image support."
