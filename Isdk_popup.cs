@@ -303,5 +303,26 @@ namespace sdk_popup
         /// </summary>
         [DispId(51)]
         bool UpdateNotificationFull(string notificationId, string title, string message, int percent);
+
+        // --- Style/Theme (v1.3.0) ---
+
+        /// <summary>
+        /// Sets the notification style: Default, Dark, Light, Rounded, Minimal.
+        /// Default uses DevExpress AlertControl. Other styles use custom modern forms.
+        /// </summary>
+        [DispId(52)]
+        void SetStyle(string styleName);
+
+        /// <summary>
+        /// Gets the current notification style name
+        /// </summary>
+        [DispId(53)]
+        string GetStyle();
+
+        /// <summary>
+        /// Returns a comma-separated list of available style names
+        /// </summary>
+        [DispId(54)]
+        string GetAvailableStyles();
     }
 }

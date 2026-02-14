@@ -34,3 +34,95 @@ title
 STRING
 [Parameter1Description]
 The notification title that was clicked
+[Event]
+StackNotificationShown
+[EventDescription]
+Fired when a stacked notification is shown, includes notification ID
+[Parameter1]
+notificationId
+[Parameter1Type]
+STRING
+[Parameter1Description]
+The notificationId parameter.
+[Parameter2]
+title
+[Parameter2Type]
+STRING
+[Parameter2Description]
+The title parameter.
+[Parameter3]
+message
+[Parameter3Type]
+STRING
+[Parameter3Description]
+The message parameter.
+[Event]
+StackNotificationDismissed
+[EventDescription]
+Fired when a stacked notification is dismissed, includes notification ID
+[Parameter1]
+notificationId
+[Parameter1Type]
+STRING
+[Parameter1Description]
+The notificationId parameter.
+[Parameter2]
+reason
+[Parameter2Type]
+STRING
+[Parameter2Description]
+The reason parameter.
+[Event]
+StackNotificationClicked
+[EventDescription]
+Fired when a stacked notification is clicked, includes notification ID
+[Parameter1]
+notificationId
+[Parameter1Type]
+STRING
+[Parameter1Description]
+The notificationId parameter.
+[Parameter2]
+title
+[Parameter2Type]
+STRING
+[Parameter2Description]
+The title parameter.
+[Event]
+NotificationUpdated
+[EventDescription]
+Fired when a notification's title or message is updated in-place
+[Parameter1]
+notificationId
+[Parameter1Type]
+STRING
+[Parameter1Description]
+The notificationId parameter.
+[Parameter2]
+title
+[Parameter2Type]
+STRING
+[Parameter2Description]
+The title parameter.
+[Parameter3]
+message
+[Parameter3Type]
+STRING
+[Parameter3Description]
+The message parameter.
+[Event]
+ProgressChanged
+[EventDescription]
+Fired when a notification's progress percentage changes
+[Parameter1]
+notificationId
+[Parameter1Type]
+STRING
+[Parameter1Description]
+The notificationId parameter.
+[Parameter2]
+percent
+[Parameter2Type]
+LONG
+[Parameter2Description]
+The percent parameter.

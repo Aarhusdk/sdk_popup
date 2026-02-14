@@ -34,6 +34,7 @@ namespace sdk_popup
             public Form ImageForm;          // null for standard alerts
             public Timer ImageTimer;        // null for standard alerts
             public bool IsImageOnly;
+            public bool IsStyledForm;       // true for custom styled notifications
         }
 
         #endregion
@@ -59,6 +60,7 @@ namespace sdk_popup
         private int _imageHeight;
         private Form _imageOnlyForm;
         private Timer _imageOnlyTimer;
+        private string _styleName = "Default";
 
         // --- Stacking (v1.2.0) ---
         private Dictionary<string, NotificationRecord> _notifications = new Dictionary<string, NotificationRecord>();
@@ -485,6 +487,31 @@ namespace sdk_popup
             return _imageHeight;
         }
 
+        // --- Style/Theme ---
+
+        [ComVisible(true)]
+        [Description("Sets the notification style: Default, Dark, Light, Rounded, Minimal")]
+        public void SetStyle(string styleName)
+        {
+            string s = (styleName ?? "Default").Trim().Trim('"');
+            var style = NotificationStyleRegistry.GetStyle(s);
+            _styleName = (style != null || s.Equals("Default", StringComparison.OrdinalIgnoreCase)) ? s : "Default";
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the current notification style name")]
+        public string GetStyle()
+        {
+            return _styleName ?? "Default";
+        }
+
+        [ComVisible(true)]
+        [Description("Returns a comma-separated list of available style names")]
+        public string GetAvailableStyles()
+        {
+            return "Default,Dark,Light,Rounded,Minimal";
+        }
+
         [ComVisible(true)]
         [Description("Shows a notification with only an image - no background, title, or message")]
         public void ShowImageNotification()
@@ -627,7 +654,7 @@ namespace sdk_popup
                 if (string.IsNullOrEmpty(notificationId)) return;
                 if (!_notifications.TryGetValue(notificationId, out var record)) return;
 
-                if (record.IsImageOnly)
+                if (record.IsImageOnly || record.IsStyledForm)
                 {
                     DismissImageFormRecord(record, "Programmatic");
                 }
@@ -778,6 +805,14 @@ namespace sdk_popup
                     return false;
                 }
 
+                // Styled form: update via StyledNotificationForm
+                if (record.IsStyledForm && record.ImageForm is StyledNotificationForm styledForm)
+                {
+                    styledForm.UpdateText(newTitle, newMessage);
+                    RaiseNotificationUpdated(notificationId, newTitle, newMessage);
+                    return true;
+                }
+
                 // Update the AlertForm controls in-place
                 if (record.AlertFormRef != null)
                 {
@@ -814,6 +849,14 @@ namespace sdk_popup
                 if (record.IsImageOnly)
                 {
                     return false;
+                }
+
+                // Styled form: update via StyledNotificationForm
+                if (record.IsStyledForm && record.ImageForm is StyledNotificationForm styledProgressForm)
+                {
+                    styledProgressForm.UpdateProgress(clampedPercent);
+                    RaiseProgressChanged(notificationId, clampedPercent);
+                    return true;
                 }
 
                 // Find or create progress bar on the AlertForm
@@ -858,6 +901,16 @@ namespace sdk_popup
                 record.Title = newTitle;
                 record.Message = newMessage;
 
+                // Styled form: update via StyledNotificationForm
+                if (record.IsStyledForm && record.ImageForm is StyledNotificationForm styledFullForm)
+                {
+                    styledFullForm.UpdateText(newTitle, newMessage);
+                    styledFullForm.UpdateProgress(clampedPercent);
+                    RaiseNotificationUpdated(notificationId, newTitle, newMessage);
+                    RaiseProgressChanged(notificationId, clampedPercent);
+                    return true;
+                }
+
                 if (record.AlertFormRef != null)
                 {
                     UpdateAlertFormText(record.AlertFormRef, newTitle, newMessage);
@@ -889,6 +942,13 @@ namespace sdk_popup
         /// </summary>
         private string ShowAlertTracked(string title, string message)
         {
+            // Route to styled form if non-default style
+            var style = NotificationStyleRegistry.GetStyle(_styleName);
+            if (style != null)
+            {
+                return ShowStyledAlertTracked(title, message);
+            }
+
             if (_alertControl == null) return "";
 
             try
@@ -959,6 +1019,14 @@ namespace sdk_popup
         /// </summary>
         private void ShowAlert()
         {
+            // Route to styled form if non-default style
+            var style = NotificationStyleRegistry.GetStyle(_styleName);
+            if (style != null)
+            {
+                ShowStyledAlert(_title, _message);
+                return;
+            }
+
             if (_alertControl == null) return;
 
             try
@@ -1306,6 +1374,136 @@ namespace sdk_popup
         }
 
         /// <summary>
+        /// Shows a styled notification (non-tracked, legacy path).
+        /// </summary>
+        private void ShowStyledAlert(string title, string message)
+        {
+            try
+            {
+                var style = NotificationStyleRegistry.GetStyle(_styleName);
+                if (style == null) return;
+
+                Image icon = style.ShowIcon ? GetDisplayImage() : null;
+                Color? bgOverride = ParseHexColor(_backgroundColor);
+                Color? textOverride = ParseHexColor(_textColor);
+
+                var form = new StyledNotificationForm(
+                    style, title, message, _notificationType,
+                    icon, _opacity, _pinned, _duration,
+                    bgOverride, textOverride);
+
+                form.Dismissed += (reason) =>
+                {
+                    _isVisible = false;
+                    RaiseNotificationDismissed(reason);
+                };
+
+                form.Clicked += () =>
+                {
+                    RaiseNotificationClicked(title);
+                };
+
+                PositionImageOnlyForm(form);
+
+                if (_soundEnabled)
+                {
+                    PlayNotificationSound();
+                }
+
+                form.Show();
+                _isVisible = true;
+                RaiseNotificationShown(title, message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowStyledAlert error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Shows a tracked styled notification with stacking support. Returns notification ID.
+        /// </summary>
+        private string ShowStyledAlertTracked(string title, string message)
+        {
+            try
+            {
+                var style = NotificationStyleRegistry.GetStyle(_styleName);
+                if (style == null) return "";
+
+                string id = GenerateNotificationId();
+                Image icon = style.ShowIcon ? GetDisplayImage() : null;
+                Color? bgOverride = ParseHexColor(_backgroundColor);
+                Color? textOverride = ParseHexColor(_textColor);
+
+                var form = new StyledNotificationForm(
+                    style, title, message, _notificationType,
+                    icon, _opacity, _pinned, _duration,
+                    bgOverride, textOverride);
+
+                var record = new NotificationRecord
+                {
+                    Id = id,
+                    Title = title,
+                    Message = message,
+                    ImageForm = form,
+                    IsImageOnly = false,
+                    IsStyledForm = true
+                };
+                _notifications[id] = record;
+                _imageFormToIdMap[form] = id;
+                _visibleImageFormOrder.Add(id);
+
+                var capturedId = id;
+                form.Dismissed += (reason) =>
+                {
+                    DismissImageFormById(capturedId, reason);
+                };
+
+                form.Clicked += () =>
+                {
+                    RaiseNotificationClicked(title);
+                    RaiseStackNotificationClicked(capturedId, title);
+                };
+
+                // Reflow positions (reuses existing stacking logic)
+                ReflowImageForms();
+
+                if (_soundEnabled)
+                {
+                    PlayNotificationSound();
+                }
+
+                form.Show();
+                _isVisible = true;
+                RaiseNotificationShown(title, message);
+                RaiseStackNotificationShown(id, title, message);
+
+                return id;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowStyledAlertTracked error: {ex.Message}");
+                return "";
+            }
+        }
+
+        /// <summary>
+        /// Parses a hex color string (#RRGGBB) to a Color. Returns null if invalid/empty.
+        /// </summary>
+        private Color? ParseHexColor(string hexColor)
+        {
+            if (string.IsNullOrEmpty(hexColor)) return null;
+            try
+            {
+                return ColorTranslator.FromHtml(hexColor);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Positions the legacy image-only form
         /// </summary>
         private void PositionImageOnlyForm(Form form)
@@ -1546,18 +1744,7 @@ namespace sdk_popup
         {
             try
             {
-                switch ((_notificationType ?? "Info").ToLower())
-                {
-                    case "success":
-                        return SystemIcons.Information.ToBitmap();
-                    case "warning":
-                        return SystemIcons.Warning.ToBitmap();
-                    case "error":
-                        return SystemIcons.Error.ToBitmap();
-                    case "info":
-                    default:
-                        return SystemIcons.Information.ToBitmap();
-                }
+                return NotificationIconRenderer.CreateIcon(_notificationType);
             }
             catch
             {

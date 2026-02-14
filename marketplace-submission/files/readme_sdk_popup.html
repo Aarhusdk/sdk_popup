@@ -337,6 +337,66 @@
                 <td><span class="badge badge-method">ShowImageNotification()</span></td>
                 <td>Shows a notification with only an image (no title or message text). Call SetImagePath first to set the image.</td>
                 <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">ShowNotificationEx()</span></td>
+                <td>Shows a notification using current settings and returns a notification ID</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">ShowNotificationWithTitleEx(title STRING, message STRING)</span></td>
+                <td>Shows a notification with title and message, returns a notification ID</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">DismissNotificationById(notificationId STRING)</span></td>
+                <td>Dismisses a specific notification by its ID</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetMaxVisibleNotifications(maxCount LONG)</span></td>
+                <td>Sets the maximum number of simultaneously visible notifications (0 = unlimited)</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetMaxVisibleNotifications()</span></td>
+                <td>Gets the maximum number of simultaneously visible notifications</td>
+                <td><code>LONG</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetActiveNotificationCount()</span></td>
+                <td>Gets the number of currently active (visible) notifications</td>
+                <td><code>LONG</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetQueuedNotificationCount()</span></td>
+                <td>Gets the number of queued notifications waiting to be shown</td>
+                <td><code>LONG</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">DismissAllNotifications()</span></td>
+                <td>Dismisses all active and queued notifications</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">ShowImageNotificationEx()</span></td>
+                <td>Shows an image-only notification with stacking support, returns a notification ID</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">UpdateNotification(notificationId STRING, title STRING, message STRING)</span></td>
+                <td>Updates the title and message of an existing notification in-place. Returns true if the notification was found and updated.</td>
+                <td><code>BYTE</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">UpdateProgress(notificationId STRING, percent LONG)</span></td>
+                <td>Updates the progress percentage of an existing notification (0-100). Returns true if the notification was found and updated.</td>
+                <td><code>BYTE</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">UpdateNotificationFull(notificationId STRING, title STRING, message STRING, percent LONG)</span></td>
+                <td>Updates the title, message, and progress of an existing notification in one call. Returns true if the notification was found and updated.</td>
+                <td><code>BYTE</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">SetStyle(styleName STRING)</span></td>
+                <td>Sets the notification style: Default, Dark, Light, Rounded, Minimal. Default uses DevExpress AlertControl. Other styles use custom modern forms.</td>
+                <td><code>void</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetStyle()</span></td>
+                <td>Gets the current notification style name</td>
+                <td><code>STRING</code></td>
+            </tr>            <tr>
+                <td><span class="badge badge-method">GetAvailableStyles()</span></td>
+                <td>Returns a comma-separated list of available style names</td>
+                <td><code>STRING</code></td>
             </tr>
                 </tbody>
             </table>
@@ -363,6 +423,26 @@
                 <td><span class="badge badge-event">NotificationClicked</span></td>
                 <td><code>title STRING</code></td>
                 <td>Fired when the user clicks on the notification</td>
+            </tr>            <tr>
+                <td><span class="badge badge-event">StackNotificationShown</span></td>
+                <td><code>notificationId STRING, title STRING, message STRING</code></td>
+                <td>Fired when a stacked notification is shown, includes notification ID</td>
+            </tr>            <tr>
+                <td><span class="badge badge-event">StackNotificationDismissed</span></td>
+                <td><code>notificationId STRING, reason STRING</code></td>
+                <td>Fired when a stacked notification is dismissed, includes notification ID</td>
+            </tr>            <tr>
+                <td><span class="badge badge-event">StackNotificationClicked</span></td>
+                <td><code>notificationId STRING, title STRING</code></td>
+                <td>Fired when a stacked notification is clicked, includes notification ID</td>
+            </tr>            <tr>
+                <td><span class="badge badge-event">NotificationUpdated</span></td>
+                <td><code>notificationId STRING, title STRING, message STRING</code></td>
+                <td>Fired when a notification's title or message is updated in-place</td>
+            </tr>            <tr>
+                <td><span class="badge badge-event">ProgressChanged</span></td>
+                <td><code>notificationId STRING, percent LONG</code></td>
+                <td>Fired when a notification's progress percentage changes</td>
             </tr>
                 </tbody>
             </table>

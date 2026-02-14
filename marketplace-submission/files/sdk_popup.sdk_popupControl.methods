@@ -270,3 +270,162 @@ ShowImageNotification
 [MethodDescription]
 Shows a notification with only an image (no title or message text). Call SetImagePath first to set the image.
 
+[Method]
+ShowNotificationEx
+[MethodDescription]
+Shows a notification using current settings and returns a notification ID
+
+[Method]
+ShowNotificationWithTitleEx
+[MethodDescription]
+Shows a notification with title and message, returns a notification ID
+[Parameter]
+title
+[ParameterType]
+STRING
+[ParameterDescription]
+The title parameter.
+[Parameter]
+message
+[ParameterType]
+STRING
+[ParameterDescription]
+The message parameter.
+
+[Method]
+DismissNotificationById
+[MethodDescription]
+Dismisses a specific notification by its ID
+[Parameter]
+notificationId
+[ParameterType]
+STRING
+[ParameterDescription]
+The notificationId parameter.
+
+[Method]
+SetMaxVisibleNotifications
+[MethodDescription]
+Sets the maximum number of simultaneously visible notifications (0 = unlimited)
+[Parameter]
+maxCount
+[ParameterType]
+LONG
+[ParameterDescription]
+The maxCount parameter.
+
+[Method]
+GetMaxVisibleNotifications
+[MethodDescription]
+Gets the maximum number of simultaneously visible notifications
+
+[Method]
+GetActiveNotificationCount
+[MethodDescription]
+Gets the number of currently active (visible) notifications
+
+[Method]
+GetQueuedNotificationCount
+[MethodDescription]
+Gets the number of queued notifications waiting to be shown
+
+[Method]
+DismissAllNotifications
+[MethodDescription]
+Dismisses all active and queued notifications
+
+[Method]
+ShowImageNotificationEx
+[MethodDescription]
+Shows an image-only notification with stacking support, returns a notification ID
+
+[Method]
+UpdateNotification
+[MethodDescription]
+Updates the title and message of an existing notification in-place. Returns true if the notification was found and updated.
+[Parameter]
+notificationId
+[ParameterType]
+STRING
+[ParameterDescription]
+The notificationId parameter.
+[Parameter]
+title
+[ParameterType]
+STRING
+[ParameterDescription]
+The title parameter.
+[Parameter]
+message
+[ParameterType]
+STRING
+[ParameterDescription]
+The message parameter.
+
+[Method]
+UpdateProgress
+[MethodDescription]
+Updates the progress percentage of an existing notification (0-100). Returns true if the notification was found and updated.
+[Parameter]
+notificationId
+[ParameterType]
+STRING
+[ParameterDescription]
+The notificationId parameter.
+[Parameter]
+percent
+[ParameterType]
+LONG
+[ParameterDescription]
+The percent parameter.
+
+[Method]
+UpdateNotificationFull
+[MethodDescription]
+Updates the title, message, and progress of an existing notification in one call. Returns true if the notification was found and updated.
+[Parameter]
+notificationId
+[ParameterType]
+STRING
+[ParameterDescription]
+The notificationId parameter.
+[Parameter]
+title
+[ParameterType]
+STRING
+[ParameterDescription]
+The title parameter.
+[Parameter]
+message
+[ParameterType]
+STRING
+[ParameterDescription]
+The message parameter.
+[Parameter]
+percent
+[ParameterType]
+LONG
+[ParameterDescription]
+The percent parameter.
+
+[Method]
+SetStyle
+[MethodDescription]
+Sets the notification style: Default, Dark, Light, Rounded, Minimal. Default uses DevExpress AlertControl. Other styles use custom modern forms.
+[Parameter]
+styleName
+[ParameterType]
+STRING
+[ParameterDescription]
+The styleName parameter.
+
+[Method]
+GetStyle
+[MethodDescription]
+Gets the current notification style name
+
+[Method]
+GetAvailableStyles
+[MethodDescription]
+Returns a comma-separated list of available style names
+

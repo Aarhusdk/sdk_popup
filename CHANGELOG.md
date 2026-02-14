@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] - 2026-02-14
+
+### Added
+- **Style/Theme System**: SetStyle/GetStyle/GetAvailableStyles for switching notification appearance
+- **5 Built-in Styles**:
+  - `Default` - Original DevExpress AlertControl (unchanged, backwards compatible)
+  - `Dark` - Dark background, white text, colored accent bar, rounded corners
+  - `Light` - White background, dark text, colored accent bar, subtle border, rounded corners
+  - `Rounded` - Gradient background in type color, white text, large rounded corners
+  - `Minimal` - Compact, no icon, colored bottom border, no close button
+- Type-based accent colors: Info (blue), Success (green), Warning (orange), Error (red)
+- Custom GDI+ rendered notification forms with fade-in/fade-out animation
+- Drop shadow support on styled forms
+- Full stacking, in-place update, and progress bar support for all styles
+- SetBackgroundColor/SetTextColor overrides work with all styles
+
 ## [1.1.0] - 2026-02-09
 
 ### Added
