@@ -8,7 +8,7 @@ namespace sdk_popup
     /// Defines all methods that Clarion can call via getter/setter pattern.
     /// </summary>
     [ComVisible(true)]
-    [Guid("738591D4-49F6-4CBD-8281-0B6299D2A643")]
+    [Guid("0030A89E-B1EF-45C7-95D4-2BAA408C2FB0")]
     [InterfaceType(ComInterfaceType.InterfaceIsDual)]
     public interface Isdk_popup
     {
@@ -224,5 +224,84 @@ namespace sdk_popup
         /// </summary>
         [DispId(34)]
         void ShowImageNotification();
+
+        // --- Notification Stacking (v1.2.0) ---
+
+        /// <summary>
+        /// Shows a notification using current settings and returns a notification ID
+        /// </summary>
+        [DispId(40)]
+        string ShowNotificationEx();
+
+        /// <summary>
+        /// Shows a notification with title and message, returns a notification ID
+        /// </summary>
+        [DispId(41)]
+        string ShowNotificationWithTitleEx(string title, string message);
+
+        /// <summary>
+        /// Dismisses a specific notification by its ID
+        /// </summary>
+        [DispId(42)]
+        void DismissNotificationById(string notificationId);
+
+        /// <summary>
+        /// Sets the maximum number of simultaneously visible notifications (0 = unlimited)
+        /// </summary>
+        [DispId(43)]
+        void SetMaxVisibleNotifications(int maxCount);
+
+        /// <summary>
+        /// Gets the maximum number of simultaneously visible notifications
+        /// </summary>
+        [DispId(44)]
+        int GetMaxVisibleNotifications();
+
+        /// <summary>
+        /// Gets the number of currently active (visible) notifications
+        /// </summary>
+        [DispId(45)]
+        int GetActiveNotificationCount();
+
+        /// <summary>
+        /// Gets the number of queued notifications waiting to be shown
+        /// </summary>
+        [DispId(46)]
+        int GetQueuedNotificationCount();
+
+        /// <summary>
+        /// Dismisses all active and queued notifications
+        /// </summary>
+        [DispId(47)]
+        void DismissAllNotifications();
+
+        /// <summary>
+        /// Shows an image-only notification with stacking support, returns a notification ID
+        /// </summary>
+        [DispId(48)]
+        string ShowImageNotificationEx();
+
+        // --- Auto-Update (v1.2.0) ---
+
+        /// <summary>
+        /// Updates the title and message of an existing notification in-place.
+        /// Returns true if the notification was found and updated.
+        /// </summary>
+        [DispId(49)]
+        bool UpdateNotification(string notificationId, string title, string message);
+
+        /// <summary>
+        /// Updates the progress percentage of an existing notification (0-100).
+        /// Returns true if the notification was found and updated.
+        /// </summary>
+        [DispId(50)]
+        bool UpdateProgress(string notificationId, int percent);
+
+        /// <summary>
+        /// Updates the title, message, and progress of an existing notification in one call.
+        /// Returns true if the notification was found and updated.
+        /// </summary>
+        [DispId(51)]
+        bool UpdateNotificationFull(string notificationId, string title, string message, int percent);
     }
 }

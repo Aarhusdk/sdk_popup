@@ -33,5 +33,39 @@ namespace sdk_popup
         /// <param name="title">The notification title that was clicked</param>
         [DispId(3)]
         void NotificationClicked(string title);
+
+        // --- Stack Events (v1.2.0) ---
+
+        /// <summary>
+        /// Fired when a stacked notification is shown, includes notification ID
+        /// </summary>
+        [DispId(10)]
+        void StackNotificationShown(string notificationId, string title, string message);
+
+        /// <summary>
+        /// Fired when a stacked notification is dismissed, includes notification ID
+        /// </summary>
+        [DispId(11)]
+        void StackNotificationDismissed(string notificationId, string reason);
+
+        /// <summary>
+        /// Fired when a stacked notification is clicked, includes notification ID
+        /// </summary>
+        [DispId(12)]
+        void StackNotificationClicked(string notificationId, string title);
+
+        // --- Auto-Update Events (v1.2.0) ---
+
+        /// <summary>
+        /// Fired when a notification's title or message is updated in-place
+        /// </summary>
+        [DispId(13)]
+        void NotificationUpdated(string notificationId, string title, string message);
+
+        /// <summary>
+        /// Fired when a notification's progress percentage changes
+        /// </summary>
+        [DispId(14)]
+        void ProgressChanged(string notificationId, int percent);
     }
 }

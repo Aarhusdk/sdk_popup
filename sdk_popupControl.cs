@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
@@ -12,6 +13,7 @@ namespace sdk_popup
     /// <summary>
     /// Toast notification COM control for Clarion using DevExpress AlertControl.
     /// Displays popup/toast notifications with configurable message, title, duration, and position.
+    /// v1.2.0: Multi-notification stacking, queuing, and per-notification ID tracking.
     /// </summary>
     [ComVisible(true)]
     [ClassInterface(ClassInterfaceType.None)]
@@ -20,6 +22,22 @@ namespace sdk_popup
     [ProgId("sdk_popup.sdk_popupControl")]
     public partial class sdk_popupControl : UserControl, Isdk_popup
     {
+        #region NotificationRecord
+
+        private class NotificationRecord
+        {
+            public string Id;
+            public string Title;
+            public string Message;
+            public AlertInfo AlertInfo;     // null for image-only
+            public object AlertFormRef;     // AlertForm reference for in-place updates (set in BeforeFormShow)
+            public Form ImageForm;          // null for standard alerts
+            public Timer ImageTimer;        // null for standard alerts
+            public bool IsImageOnly;
+        }
+
+        #endregion
+
         #region Fields
 
         private AlertControl _alertControl;
@@ -42,61 +60,59 @@ namespace sdk_popup
         private Form _imageOnlyForm;
         private Timer _imageOnlyTimer;
 
+        // --- Stacking (v1.2.0) ---
+        private Dictionary<string, NotificationRecord> _notifications = new Dictionary<string, NotificationRecord>();
+        private Dictionary<object, string> _alertFormToIdMap = new Dictionary<object, string>();
+        private Dictionary<Form, string> _imageFormToIdMap = new Dictionary<Form, string>();
+        private List<string> _visibleImageFormOrder = new List<string>();
+        private Queue<NotificationRecord> _imageOnlyQueue = new Queue<NotificationRecord>();
+        private int _nextNotificationId = 1;
+        private int _maxStackSize;  // 0 = unlimited
+
         #endregion
 
         #region COM Event Delegates
 
-        /// <summary>
-        /// Delegate for NotificationShown event
-        /// </summary>
         public delegate void NotificationShownDelegate(string title, string message);
-
-        /// <summary>
-        /// Delegate for NotificationDismissed event
-        /// </summary>
         public delegate void NotificationDismissedDelegate(string reason);
-
-        /// <summary>
-        /// Delegate for NotificationClicked event
-        /// </summary>
         public delegate void NotificationClickedDelegate(string title);
+
+        // Stack event delegates (v1.2.0)
+        public delegate void StackNotificationShownDelegate(string notificationId, string title, string message);
+        public delegate void StackNotificationDismissedDelegate(string notificationId, string reason);
+        public delegate void StackNotificationClickedDelegate(string notificationId, string title);
+
+        // Auto-update event delegates (v1.2.0)
+        public delegate void NotificationUpdatedDelegate(string notificationId, string title, string message);
+        public delegate void ProgressChangedDelegate(string notificationId, int percent);
 
         #endregion
 
         #region COM Events
 
-        /// <summary>
-        /// Fired when a notification is shown
-        /// </summary>
         public event NotificationShownDelegate NotificationShown;
-
-        /// <summary>
-        /// Fired when a notification is dismissed
-        /// </summary>
         public event NotificationDismissedDelegate NotificationDismissed;
-
-        /// <summary>
-        /// Fired when the user clicks on the notification
-        /// </summary>
         public event NotificationClickedDelegate NotificationClicked;
+
+        // Stack events (v1.2.0)
+        public event StackNotificationShownDelegate StackNotificationShown;
+        public event StackNotificationDismissedDelegate StackNotificationDismissed;
+        public event StackNotificationClickedDelegate StackNotificationClicked;
+
+        // Auto-update events (v1.2.0)
+        public event NotificationUpdatedDelegate NotificationUpdated;
+        public event ProgressChangedDelegate ProgressChanged;
 
         #endregion
 
         #region Constructor
 
-        /// <summary>
-        /// Parameterless constructor required for COM.
-        /// DO NOT create child controls here - use OnHandleCreated.
-        /// </summary>
         public sdk_popupControl()
         {
             Size = new Size(1, 1);
             DoubleBuffered = true;
         }
 
-        /// <summary>
-        /// Create the AlertControl after the window handle exists.
-        /// </summary>
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
@@ -107,9 +123,6 @@ namespace sdk_popup
             }
         }
 
-        /// <summary>
-        /// Initialize the DevExpress AlertControl component.
-        /// </summary>
         private void InitializeAlertControl()
         {
             if (_alertControl != null) return;
@@ -130,11 +143,8 @@ namespace sdk_popup
 
         #endregion
 
-        #region Isdk_popup Methods
+        #region Isdk_popup Methods (existing)
 
-        /// <summary>
-        /// Shows a toast notification with the specified message
-        /// </summary>
         [ComVisible(true)]
         [Description("Shows a toast notification with the specified message")]
         public void ShowNotification(string message)
@@ -156,9 +166,6 @@ namespace sdk_popup
             }
         }
 
-        /// <summary>
-        /// Shows a toast notification with title and message
-        /// </summary>
         [ComVisible(true)]
         [Description("Shows a toast notification with title and message")]
         public void ShowNotificationWithTitle(string title, string message)
@@ -181,9 +188,6 @@ namespace sdk_popup
             }
         }
 
-        /// <summary>
-        /// Sets the notification title text
-        /// </summary>
         [ComVisible(true)]
         [Description("Sets the notification title text")]
         public void SetTitle(string title)
@@ -191,9 +195,6 @@ namespace sdk_popup
             _title = (title ?? "Notification").Trim().Trim('"');
         }
 
-        /// <summary>
-        /// Gets the current notification title text
-        /// </summary>
         [ComVisible(true)]
         [Description("Gets the current notification title text")]
         public string GetTitle()
@@ -201,9 +202,6 @@ namespace sdk_popup
             return _title ?? "";
         }
 
-        /// <summary>
-        /// Sets the notification message text
-        /// </summary>
         [ComVisible(true)]
         [Description("Sets the notification message text")]
         public void SetMessage(string message)
@@ -211,9 +209,6 @@ namespace sdk_popup
             _message = (message ?? "").Trim().Trim('"');
         }
 
-        /// <summary>
-        /// Gets the current notification message text
-        /// </summary>
         [ComVisible(true)]
         [Description("Gets the current notification message text")]
         public string GetMessage()
@@ -221,9 +216,6 @@ namespace sdk_popup
             return _message ?? "";
         }
 
-        /// <summary>
-        /// Sets the display duration in milliseconds (default: 3000)
-        /// </summary>
         [ComVisible(true)]
         [Description("Sets the display duration in milliseconds")]
         public void SetDuration(int milliseconds)
@@ -235,9 +227,6 @@ namespace sdk_popup
             }
         }
 
-        /// <summary>
-        /// Gets the current display duration in milliseconds
-        /// </summary>
         [ComVisible(true)]
         [Description("Gets the current display duration in milliseconds")]
         public int GetDuration()
@@ -245,9 +234,6 @@ namespace sdk_popup
             return _duration;
         }
 
-        /// <summary>
-        /// Sets the notification position: TopLeft, TopCenter, TopRight, BottomLeft, BottomCenter, BottomRight
-        /// </summary>
         [ComVisible(true)]
         [Description("Sets the notification position")]
         public void SetPosition(string position)
@@ -256,9 +242,6 @@ namespace sdk_popup
             ApplyPosition();
         }
 
-        /// <summary>
-        /// Gets the current notification position
-        /// </summary>
         [ComVisible(true)]
         [Description("Gets the current notification position")]
         public string GetPosition()
@@ -266,9 +249,6 @@ namespace sdk_popup
             return _position ?? "TopRight";
         }
 
-        /// <summary>
-        /// Sets the notification type: Info, Success, Warning, Error
-        /// </summary>
         [ComVisible(true)]
         [Description("Sets the notification type")]
         public void SetNotificationType(string notificationType)
@@ -276,9 +256,6 @@ namespace sdk_popup
             _notificationType = (notificationType ?? "Info").Trim().Trim('"');
         }
 
-        /// <summary>
-        /// Gets the current notification type
-        /// </summary>
         [ComVisible(true)]
         [Description("Gets the current notification type")]
         public string GetNotificationType()
@@ -286,9 +263,6 @@ namespace sdk_popup
             return _notificationType ?? "Info";
         }
 
-        /// <summary>
-        /// Sets the background color for the notification (hex format, e.g. #FF6600)
-        /// </summary>
         [ComVisible(true)]
         [Description("Sets the background color for the notification")]
         public void SetBackgroundColor(string hexColor)
@@ -296,9 +270,6 @@ namespace sdk_popup
             _backgroundColor = (hexColor ?? "").Trim().Trim('"');
         }
 
-        /// <summary>
-        /// Gets the current background color
-        /// </summary>
         [ComVisible(true)]
         [Description("Gets the current background color")]
         public string GetBackgroundColor()
@@ -306,9 +277,6 @@ namespace sdk_popup
             return _backgroundColor ?? "";
         }
 
-        /// <summary>
-        /// Sets the text color for the notification (hex format)
-        /// </summary>
         [ComVisible(true)]
         [Description("Sets the text color for the notification")]
         public void SetTextColor(string hexColor)
@@ -316,9 +284,6 @@ namespace sdk_popup
             _textColor = (hexColor ?? "").Trim().Trim('"');
         }
 
-        /// <summary>
-        /// Gets the current text color
-        /// </summary>
         [ComVisible(true)]
         [Description("Gets the current text color")]
         public string GetTextColor()
@@ -326,9 +291,6 @@ namespace sdk_popup
             return _textColor ?? "";
         }
 
-        /// <summary>
-        /// Sets the image from a file path (PNG, JPG, BMP, ICO)
-        /// </summary>
         [ComVisible(true)]
         [Description("Sets the image from a file path")]
         public void SetImagePath(string filePath)
@@ -338,7 +300,6 @@ namespace sdk_popup
                 _imagePath = (filePath ?? "").Trim().Trim('"');
                 if (!string.IsNullOrEmpty(_imagePath) && File.Exists(_imagePath))
                 {
-                    // Load image from file without locking it
                     using (var stream = new FileStream(_imagePath, FileMode.Open, FileAccess.Read))
                     {
                         _customImage?.Dispose();
@@ -353,9 +314,6 @@ namespace sdk_popup
             }
         }
 
-        /// <summary>
-        /// Gets the current image file path
-        /// </summary>
         [ComVisible(true)]
         [Description("Gets the current image file path")]
         public string GetImagePath()
@@ -363,9 +321,6 @@ namespace sdk_popup
             return _imagePath ?? "";
         }
 
-        /// <summary>
-        /// Clears the custom image, reverting to the notification type icon
-        /// </summary>
         [ComVisible(true)]
         [Description("Clears the custom image")]
         public void ClearImage()
@@ -375,9 +330,6 @@ namespace sdk_popup
             _customImage = null;
         }
 
-        /// <summary>
-        /// Dismisses any currently visible notification
-        /// </summary>
         [ComVisible(true)]
         [Description("Dismisses any currently visible notification")]
         public void DismissNotification()
@@ -390,14 +342,26 @@ namespace sdk_popup
                     return;
                 }
 
-                // Close image-only form
+                // Close legacy image-only form
                 CloseImageOnlyForm();
+
+                // Close all stacked image forms
+                CloseAllImageForms();
+
+                // Clear image queue
+                _imageOnlyQueue.Clear();
 
                 // Close alert forms
                 if (_alertControl != null)
                 {
                     _alertControl.AlertFormList.ForEach(f => f.Close());
                 }
+
+                // Clear all tracking
+                _notifications.Clear();
+                _alertFormToIdMap.Clear();
+                _imageFormToIdMap.Clear();
+                _visibleImageFormOrder.Clear();
 
                 _isVisible = false;
                 RaiseNotificationDismissed("Programmatic");
@@ -408,19 +372,13 @@ namespace sdk_popup
             }
         }
 
-        /// <summary>
-        /// Returns whether a notification is currently visible
-        /// </summary>
         [ComVisible(true)]
         [Description("Returns whether a notification is currently visible")]
         public bool GetIsVisible()
         {
-            return _isVisible;
+            return _isVisible || _notifications.Count > 0;
         }
 
-        /// <summary>
-        /// Displays control name and version information
-        /// </summary>
         [ComVisible(true)]
         [Description("Shows control name and version information")]
         public void About()
@@ -539,16 +497,14 @@ namespace sdk_popup
                     return;
                 }
 
-                // Close any previous image-only form
+                // Close any previous legacy image-only form
                 CloseImageOnlyForm();
 
                 Image img = GetDisplayImage();
                 if (img == null) return;
 
-                // Unique transparency color (unlikely to appear in any image)
                 var transKey = Color.FromArgb(1, 0, 1);
 
-                // Create borderless form
                 _imageOnlyForm = new Form();
                 _imageOnlyForm.FormBorderStyle = FormBorderStyle.None;
                 _imageOnlyForm.ShowInTaskbar = false;
@@ -563,7 +519,6 @@ namespace sdk_popup
                     _imageOnlyForm.Opacity = _opacity / 100.0;
                 }
 
-                // PictureBox fills entire form - no gaps
                 var pb = new PictureBox();
                 pb.Image = img;
                 pb.BackColor = transKey;
@@ -572,20 +527,16 @@ namespace sdk_popup
                 pb.Cursor = Cursors.Hand;
                 _imageOnlyForm.Controls.Add(pb);
 
-                // ClientSize = exact image dimensions (no border padding)
                 _imageOnlyForm.ClientSize = new Size(img.Width, img.Height);
 
-                // Position the form
                 PositionImageOnlyForm(_imageOnlyForm);
 
-                // Click to dismiss
                 pb.Click += (s, e) =>
                 {
                     CloseImageOnlyForm();
                     RaiseNotificationClicked("");
                 };
 
-                // Auto-close timer (unless pinned)
                 if (!_pinned)
                 {
                     _imageOnlyTimer = new Timer();
@@ -598,7 +549,6 @@ namespace sdk_popup
                     _imageOnlyTimer.Start();
                 }
 
-                // Play sound
                 if (_soundEnabled)
                 {
                     PlayNotificationSound();
@@ -616,10 +566,396 @@ namespace sdk_popup
 
         #endregion
 
+        #region Isdk_popup Methods (v1.2.0 Stacking)
+
+        [ComVisible(true)]
+        [Description("Shows a notification using current settings and returns a notification ID")]
+        public string ShowNotificationEx()
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (string)Invoke(new Func<string>(ShowNotificationEx));
+                }
+
+                return ShowAlertTracked(_title, _message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowNotificationEx error: {ex.Message}");
+                return "";
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Shows a notification with title and message, returns a notification ID")]
+        public string ShowNotificationWithTitleEx(string title, string message)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (string)Invoke(new Func<string, string, string>(ShowNotificationWithTitleEx), title, message);
+                }
+
+                string t = title ?? "Notification";
+                string m = message ?? "";
+                _title = t;
+                _message = m;
+                return ShowAlertTracked(t, m);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowNotificationWithTitleEx error: {ex.Message}");
+                return "";
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Dismisses a specific notification by its ID")]
+        public void DismissNotificationById(string notificationId)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(new Action<string>(DismissNotificationById), notificationId);
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(notificationId)) return;
+                if (!_notifications.TryGetValue(notificationId, out var record)) return;
+
+                if (record.IsImageOnly)
+                {
+                    DismissImageFormRecord(record, "Programmatic");
+                }
+                else
+                {
+                    DismissAlertRecord(record, "Programmatic");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup DismissNotificationById error: {ex.Message}");
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Sets the maximum number of simultaneously visible notifications (0 = unlimited)")]
+        public void SetMaxVisibleNotifications(int maxCount)
+        {
+            _maxStackSize = Math.Max(0, maxCount);
+
+            if (_alertControl != null)
+            {
+                _alertControl.FormMaxCount = _maxStackSize > 0 ? _maxStackSize : 0;
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the maximum number of simultaneously visible notifications")]
+        public int GetMaxVisibleNotifications()
+        {
+            return _maxStackSize;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the number of currently active (visible) notifications")]
+        public int GetActiveNotificationCount()
+        {
+            int count = 0;
+
+            if (_alertControl != null)
+            {
+                count += _alertControl.AlertFormList.Count;
+            }
+
+            count += _visibleImageFormOrder.Count;
+
+            return count;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the number of queued notifications waiting to be shown")]
+        public int GetQueuedNotificationCount()
+        {
+            return _imageOnlyQueue.Count;
+        }
+
+        [ComVisible(true)]
+        [Description("Dismisses all active and queued notifications")]
+        public void DismissAllNotifications()
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(new Action(DismissAllNotifications));
+                    return;
+                }
+
+                // Close all stacked image forms (with timers)
+                CloseAllImageForms();
+
+                // Clear image queue
+                _imageOnlyQueue.Clear();
+
+                // Close all alert forms
+                if (_alertControl != null)
+                {
+                    _alertControl.AlertFormList.ForEach(f => f.Close());
+                }
+
+                // Fire dismissed events for all tracked notifications
+                foreach (var kvp in new Dictionary<string, NotificationRecord>(_notifications))
+                {
+                    RaiseStackNotificationDismissed(kvp.Key, "Programmatic");
+                }
+
+                // Clear all tracking
+                _notifications.Clear();
+                _alertFormToIdMap.Clear();
+                _imageFormToIdMap.Clear();
+                _visibleImageFormOrder.Clear();
+
+                RaiseNotificationDismissed("Programmatic");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup DismissAllNotifications error: {ex.Message}");
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Shows an image-only notification with stacking support, returns a notification ID")]
+        public string ShowImageNotificationEx()
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (string)Invoke(new Func<string>(ShowImageNotificationEx));
+                }
+
+                return ShowImageTracked();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowImageNotificationEx error: {ex.Message}");
+                return "";
+            }
+        }
+
+        #endregion
+
+        #region Isdk_popup Methods (v1.2.0 Auto-Update)
+
+        [ComVisible(true)]
+        [Description("Updates the title and message of an existing notification in-place")]
+        public bool UpdateNotification(string notificationId, string title, string message)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (bool)Invoke(new Func<string, string, string, bool>(UpdateNotification), notificationId, title, message);
+                }
+
+                notificationId = (notificationId ?? "").Trim();
+                if (string.IsNullOrEmpty(notificationId)) return false;
+                if (!_notifications.TryGetValue(notificationId, out var record)) return false;
+
+                string newTitle = (title ?? "").Trim();
+                string newMessage = (message ?? "").Trim();
+                record.Title = newTitle;
+                record.Message = newMessage;
+
+                if (record.IsImageOnly)
+                {
+                    // Image-only notifications don't have text to update
+                    return false;
+                }
+
+                // Update the AlertForm controls in-place
+                if (record.AlertFormRef != null)
+                {
+                    UpdateAlertFormText(record.AlertFormRef, newTitle, newMessage);
+                }
+
+                RaiseNotificationUpdated(notificationId, newTitle, newMessage);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup UpdateNotification error: {ex.Message}");
+                return false;
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Updates the progress percentage of an existing notification (0-100)")]
+        public bool UpdateProgress(string notificationId, int percent)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (bool)Invoke(new Func<string, int, bool>(UpdateProgress), notificationId, percent);
+                }
+
+                notificationId = (notificationId ?? "").Trim();
+                if (string.IsNullOrEmpty(notificationId)) return false;
+                if (!_notifications.TryGetValue(notificationId, out var record)) return false;
+
+                int clampedPercent = Math.Max(0, Math.Min(100, percent));
+
+                if (record.IsImageOnly)
+                {
+                    return false;
+                }
+
+                // Find or create progress bar on the AlertForm
+                if (record.AlertFormRef != null)
+                {
+                    UpdateAlertFormProgress(record.AlertFormRef, clampedPercent);
+                }
+
+                RaiseProgressChanged(notificationId, clampedPercent);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup UpdateProgress error: {ex.Message}");
+                return false;
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Updates the title, message, and progress of an existing notification in one call")]
+        public bool UpdateNotificationFull(string notificationId, string title, string message, int percent)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (bool)Invoke(new Func<string, string, string, int, bool>(UpdateNotificationFull), notificationId, title, message, percent);
+                }
+
+                notificationId = (notificationId ?? "").Trim();
+                if (string.IsNullOrEmpty(notificationId)) return false;
+                if (!_notifications.TryGetValue(notificationId, out var record)) return false;
+
+                if (record.IsImageOnly)
+                {
+                    return false;
+                }
+
+                string newTitle = (title ?? "").Trim();
+                string newMessage = (message ?? "").Trim();
+                int clampedPercent = Math.Max(0, Math.Min(100, percent));
+                record.Title = newTitle;
+                record.Message = newMessage;
+
+                if (record.AlertFormRef != null)
+                {
+                    UpdateAlertFormText(record.AlertFormRef, newTitle, newMessage);
+                    UpdateAlertFormProgress(record.AlertFormRef, clampedPercent);
+                }
+
+                RaiseNotificationUpdated(notificationId, newTitle, newMessage);
+                RaiseProgressChanged(notificationId, clampedPercent);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup UpdateNotificationFull error: {ex.Message}");
+                return false;
+            }
+        }
+
+        #endregion
+
         #region Private Methods
 
+        private string GenerateNotificationId()
+        {
+            return (_nextNotificationId++).ToString();
+        }
+
         /// <summary>
-        /// Shows the DevExpress alert notification
+        /// Shows a tracked standard alert notification and returns its ID.
+        /// </summary>
+        private string ShowAlertTracked(string title, string message)
+        {
+            if (_alertControl == null) return "";
+
+            try
+            {
+                string id = GenerateNotificationId();
+
+                var info = new AlertInfo(title, message);
+                info.Image = GetDisplayImage();
+                info.Tag = id;
+
+                _alertControl.AutoFormDelay = _pinned ? int.MaxValue : _duration;
+                _alertControl.ShowPinButton = _pinned;
+                ApplyPosition();
+
+                string pos = (_position ?? "").ToLower();
+                bool needsReposition = (pos == "center" || pos == "topcenter" || pos == "bottomcenter");
+
+                _alertControl.FormShowingEffect = needsReposition
+                    ? AlertFormShowingEffect.None
+                    : AlertFormShowingEffect.FadeIn;
+
+                var record = new NotificationRecord
+                {
+                    Id = id,
+                    Title = title,
+                    Message = message,
+                    AlertInfo = info,
+                    IsImageOnly = false
+                };
+                _notifications[id] = record;
+
+                if (_soundEnabled)
+                {
+                    PlayNotificationSound();
+                }
+
+                Form ownerForm = FindForm();
+                _alertControl.Show(ownerForm, info);
+
+                _isVisible = true;
+                RaiseNotificationShown(title, message);
+                RaiseStackNotificationShown(id, title, message);
+
+                if (needsReposition)
+                {
+                    var capturedPos = pos;
+                    BeginInvoke(new Action(() =>
+                    {
+                        try
+                        {
+                            RepositionAlertForms(capturedPos);
+                        }
+                        catch { }
+                    }));
+                }
+
+                return id;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowAlertTracked error: {ex.Message}");
+                return "";
+            }
+        }
+
+        /// <summary>
+        /// Shows the DevExpress alert notification (legacy, non-tracked)
         /// </summary>
         private void ShowAlert()
         {
@@ -628,38 +964,30 @@ namespace sdk_popup
             try
             {
                 var info = new AlertInfo(_title, _message);
-
-                // Apply custom image or notification type icon, with optional resize
                 info.Image = GetDisplayImage();
 
-                // Apply custom appearance
                 _alertControl.AutoFormDelay = _pinned ? int.MaxValue : _duration;
                 _alertControl.ShowPinButton = _pinned;
                 ApplyPosition();
 
-                // Determine if center repositioning is needed
                 string pos = (_position ?? "").ToLower();
                 bool needsReposition = (pos == "center" || pos == "topcenter" || pos == "bottomcenter");
 
-                // Disable animation for center positions - animation overrides our position
                 _alertControl.FormShowingEffect = needsReposition
                     ? AlertFormShowingEffect.None
                     : AlertFormShowingEffect.FadeIn;
 
-                // Play sound
                 if (_soundEnabled)
                 {
                     PlayNotificationSound();
                 }
 
-                // Show alert
                 Form ownerForm = FindForm();
                 _alertControl.Show(ownerForm, info);
 
                 _isVisible = true;
                 RaiseNotificationShown(_title, _message);
 
-                // Reposition AFTER Show() for center positions
                 if (needsReposition)
                 {
                     var capturedPos = pos;
@@ -680,7 +1008,305 @@ namespace sdk_popup
         }
 
         /// <summary>
-        /// Positions the image-only form according to the current position setting
+        /// Shows a tracked image-only notification with stacking support.
+        /// </summary>
+        private string ShowImageTracked()
+        {
+            Image img = GetDisplayImage();
+            if (img == null) return "";
+
+            string id = GenerateNotificationId();
+
+            var record = new NotificationRecord
+            {
+                Id = id,
+                Title = "",
+                Message = "",
+                IsImageOnly = true
+            };
+
+            // Check if we need to queue
+            if (_maxStackSize > 0 && _visibleImageFormOrder.Count >= _maxStackSize)
+            {
+                _notifications[id] = record;
+                _imageOnlyQueue.Enqueue(record);
+                return id;
+            }
+
+            _notifications[id] = record;
+            ShowImageFormFromRecord(record, img);
+            return id;
+        }
+
+        /// <summary>
+        /// Creates and shows the actual image form for a tracked record.
+        /// </summary>
+        private void ShowImageFormFromRecord(NotificationRecord record, Image img = null)
+        {
+            if (img == null)
+            {
+                img = GetDisplayImage();
+                if (img == null) return;
+            }
+
+            var transKey = Color.FromArgb(1, 0, 1);
+
+            var form = new Form();
+            form.FormBorderStyle = FormBorderStyle.None;
+            form.ShowInTaskbar = false;
+            form.TopMost = true;
+            form.StartPosition = FormStartPosition.Manual;
+            form.AllowTransparency = true;
+            form.BackColor = transKey;
+            form.TransparencyKey = transKey;
+
+            if (_opacity < 100)
+            {
+                form.Opacity = _opacity / 100.0;
+            }
+
+            var pb = new PictureBox();
+            pb.Image = img;
+            pb.BackColor = transKey;
+            pb.Dock = DockStyle.Fill;
+            pb.SizeMode = PictureBoxSizeMode.StretchImage;
+            pb.Cursor = Cursors.Hand;
+            form.Controls.Add(pb);
+
+            form.ClientSize = new Size(img.Width, img.Height);
+
+            record.ImageForm = form;
+            _imageFormToIdMap[form] = record.Id;
+            _visibleImageFormOrder.Add(record.Id);
+
+            // Position with stacking offset
+            ReflowImageForms();
+
+            // Click to dismiss
+            var capturedId = record.Id;
+            pb.Click += (s, e) =>
+            {
+                DismissImageFormById(capturedId, "UserDismissed");
+                RaiseNotificationClicked("");
+                RaiseStackNotificationClicked(capturedId, "");
+            };
+
+            // Auto-close timer (unless pinned)
+            if (!_pinned)
+            {
+                var timer = new Timer();
+                timer.Interval = _duration;
+                record.ImageTimer = timer;
+                var timerId = record.Id;
+                timer.Tick += (s, e) =>
+                {
+                    DismissImageFormById(timerId, "Timeout");
+                };
+                timer.Start();
+            }
+
+            if (_soundEnabled)
+            {
+                PlayNotificationSound();
+            }
+
+            form.Show();
+            _isVisible = true;
+            RaiseNotificationShown("", "");
+            RaiseStackNotificationShown(record.Id, "", "");
+        }
+
+        /// <summary>
+        /// Dismisses a tracked image form by notification ID.
+        /// </summary>
+        private void DismissImageFormById(string id, string reason)
+        {
+            if (!_notifications.TryGetValue(id, out var record)) return;
+            DismissImageFormRecord(record, reason);
+        }
+
+        /// <summary>
+        /// Dismisses a tracked image form from its record.
+        /// </summary>
+        private void DismissImageFormRecord(NotificationRecord record, string reason)
+        {
+            // Stop and dispose timer
+            if (record.ImageTimer != null)
+            {
+                record.ImageTimer.Stop();
+                record.ImageTimer.Dispose();
+                record.ImageTimer = null;
+            }
+
+            // Close and dispose form
+            if (record.ImageForm != null && !record.ImageForm.IsDisposed)
+            {
+                _imageFormToIdMap.Remove(record.ImageForm);
+                record.ImageForm.Close();
+                record.ImageForm.Dispose();
+                record.ImageForm = null;
+            }
+
+            // Remove from tracking
+            _visibleImageFormOrder.Remove(record.Id);
+            _notifications.Remove(record.Id);
+
+            // Fire events
+            RaiseNotificationDismissed(reason);
+            RaiseStackNotificationDismissed(record.Id, reason);
+
+            // Reflow remaining
+            ReflowImageForms();
+
+            // Dequeue next if available
+            DequeueNextImageForm();
+
+            // Update visibility
+            if (_notifications.Count == 0 && !_isVisible)
+            {
+                _isVisible = false;
+            }
+        }
+
+        /// <summary>
+        /// Dismisses a tracked standard alert from its record.
+        /// </summary>
+        private void DismissAlertRecord(NotificationRecord record, string reason)
+        {
+            // Find and close the alert form
+            if (_alertControl != null && record.AlertInfo != null)
+            {
+                // Find the alert form by matching tag in our map
+                object formToClose = null;
+                foreach (var kvp in _alertFormToIdMap)
+                {
+                    if (kvp.Value == record.Id)
+                    {
+                        formToClose = kvp.Key;
+                        break;
+                    }
+                }
+
+                if (formToClose != null)
+                {
+                    _alertFormToIdMap.Remove(formToClose);
+                    try
+                    {
+                        // AlertForm inherits from Form, try to close it
+                        var closeMethod = formToClose.GetType().GetMethod("Close");
+                        closeMethod?.Invoke(formToClose, null);
+                    }
+                    catch { }
+                }
+            }
+
+            _notifications.Remove(record.Id);
+
+            RaiseNotificationDismissed(reason);
+            RaiseStackNotificationDismissed(record.Id, reason);
+        }
+
+        /// <summary>
+        /// Dequeues the next image-only notification if there's room.
+        /// </summary>
+        private void DequeueNextImageForm()
+        {
+            if (_imageOnlyQueue.Count == 0) return;
+            if (_maxStackSize > 0 && _visibleImageFormOrder.Count >= _maxStackSize) return;
+
+            var record = _imageOnlyQueue.Dequeue();
+            ShowImageFormFromRecord(record);
+        }
+
+        /// <summary>
+        /// Closes all tracked image forms (but not the legacy _imageOnlyForm).
+        /// </summary>
+        private void CloseAllImageForms()
+        {
+            // Copy IDs to avoid modification during iteration
+            var ids = new List<string>(_visibleImageFormOrder);
+            foreach (var id in ids)
+            {
+                if (_notifications.TryGetValue(id, out var record) && record.IsImageOnly)
+                {
+                    if (record.ImageTimer != null)
+                    {
+                        record.ImageTimer.Stop();
+                        record.ImageTimer.Dispose();
+                        record.ImageTimer = null;
+                    }
+
+                    if (record.ImageForm != null && !record.ImageForm.IsDisposed)
+                    {
+                        _imageFormToIdMap.Remove(record.ImageForm);
+                        record.ImageForm.Close();
+                        record.ImageForm.Dispose();
+                        record.ImageForm = null;
+                    }
+                }
+            }
+
+            _visibleImageFormOrder.Clear();
+        }
+
+        /// <summary>
+        /// Reflows (repositions) all visible stacked image forms.
+        /// </summary>
+        private void ReflowImageForms()
+        {
+            if (_visibleImageFormOrder.Count == 0) return;
+
+            Screen screen = Screen.PrimaryScreen;
+            Rectangle workArea = screen.WorkingArea;
+            string pos = (_position ?? "TopRight").ToLower();
+            int gap = 10;
+            bool stackDown = !pos.StartsWith("bottom");
+            int cumulativeHeight = 0;
+
+            foreach (var id in _visibleImageFormOrder)
+            {
+                if (!_notifications.TryGetValue(id, out var record)) continue;
+                var form = record.ImageForm;
+                if (form == null || form.IsDisposed) continue;
+
+                int x, y;
+
+                switch (pos)
+                {
+                    case "topleft":
+                    case "bottomleft":
+                        x = workArea.Left + 10;
+                        break;
+                    case "topcenter":
+                    case "bottomcenter":
+                    case "center":
+                        x = workArea.Left + (workArea.Width - form.Width) / 2;
+                        break;
+                    default: // topright, bottomright
+                        x = workArea.Right - form.Width - 10;
+                        break;
+                }
+
+                if (stackDown)
+                {
+                    int baseY = pos == "center"
+                        ? workArea.Top + (workArea.Height - form.Height) / 2
+                        : workArea.Top + 10;
+                    y = baseY + cumulativeHeight;
+                }
+                else
+                {
+                    int baseY = workArea.Bottom - form.Height - 10;
+                    y = baseY - cumulativeHeight;
+                }
+
+                form.Location = new Point(x, y);
+                cumulativeHeight += form.Height + gap;
+            }
+        }
+
+        /// <summary>
+        /// Positions the legacy image-only form
         /// </summary>
         private void PositionImageOnlyForm(Form form)
         {
@@ -728,7 +1354,7 @@ namespace sdk_popup
         }
 
         /// <summary>
-        /// Closes and disposes the image-only form
+        /// Closes and disposes the legacy image-only form
         /// </summary>
         private void CloseImageOnlyForm()
         {
@@ -750,7 +1376,6 @@ namespace sdk_popup
 
         /// <summary>
         /// Repositions all active alert forms to center positions.
-        /// Called via BeginInvoke after Show() so DevExpress has finished its positioning.
         /// </summary>
         private void RepositionAlertForms(string pos)
         {
@@ -786,14 +1411,116 @@ namespace sdk_popup
         }
 
         /// <summary>
-        /// Gets the image to display, resized if SetImageSize was called
+        /// Updates text labels on a DevExpress AlertForm by traversing child controls.
+        /// AlertForm contains a panel with LabelControl children for caption and text.
         /// </summary>
+        private void UpdateAlertFormText(object alertFormRef, string title, string message)
+        {
+            try
+            {
+                var form = alertFormRef as Form;
+                if (form == null || form.IsDisposed) return;
+
+                // DevExpress AlertForm uses nested controls. Walk all controls to find text elements.
+                // The AlertForm typically has: a caption label (bold) and a text label.
+                bool foundCaption = false;
+                foreach (Control ctrl in form.Controls)
+                {
+                    UpdateControlTextRecursive(ctrl, title, message, ref foundCaption);
+                }
+
+                form.Invalidate(true);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup UpdateAlertFormText error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Recursively searches for DevExpress LabelControl or Label controls to update text.
+        /// The first text control found is treated as the caption/title, the second as the message.
+        /// </summary>
+        private void UpdateControlTextRecursive(Control control, string title, string message, ref bool foundCaption)
+        {
+            // Check if this is a text-displaying control (LabelControl or Label)
+            string typeName = control.GetType().Name;
+            if (typeName == "LabelControl" || typeName == "Label")
+            {
+                if (!foundCaption)
+                {
+                    control.Text = title;
+                    foundCaption = true;
+                }
+                else
+                {
+                    control.Text = message;
+                    return; // Found both, done
+                }
+            }
+
+            // Recurse into child controls
+            foreach (Control child in control.Controls)
+            {
+                UpdateControlTextRecursive(child, title, message, ref foundCaption);
+            }
+        }
+
+        /// <summary>
+        /// Finds or creates a ProgressBar on the AlertForm and sets its value.
+        /// </summary>
+        private void UpdateAlertFormProgress(object alertFormRef, int percent)
+        {
+            try
+            {
+                var form = alertFormRef as Form;
+                if (form == null || form.IsDisposed) return;
+
+                // Find existing ProgressBar
+                ProgressBar progressBar = FindControlRecursive<ProgressBar>(form);
+
+                if (progressBar == null)
+                {
+                    // Create a progress bar at the bottom of the alert form
+                    progressBar = new ProgressBar();
+                    progressBar.Minimum = 0;
+                    progressBar.Maximum = 100;
+                    progressBar.Height = 8;
+                    progressBar.Dock = DockStyle.Bottom;
+                    progressBar.Style = ProgressBarStyle.Continuous;
+                    form.Controls.Add(progressBar);
+                    progressBar.BringToFront();
+                }
+
+                progressBar.Value = percent;
+                progressBar.Visible = true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup UpdateAlertFormProgress error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Finds the first control of type T in the form's control hierarchy.
+        /// </summary>
+        private T FindControlRecursive<T>(Control parent) where T : Control
+        {
+            foreach (Control child in parent.Controls)
+            {
+                if (child is T match) return match;
+
+                T found = FindControlRecursive<T>(child);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
         private Image GetDisplayImage()
         {
             Image source = _customImage ?? GetNotificationIcon();
             if (source == null) return null;
 
-            // Resize if custom dimensions are set
             if (_imageWidth > 0 && _imageHeight > 0)
             {
                 try
@@ -815,9 +1542,6 @@ namespace sdk_popup
             return source;
         }
 
-        /// <summary>
-        /// Gets an icon bitmap based on the notification type
-        /// </summary>
         private Image GetNotificationIcon()
         {
             try
@@ -841,9 +1565,6 @@ namespace sdk_popup
             }
         }
 
-        /// <summary>
-        /// Plays the notification sound (custom WAV or system default)
-        /// </summary>
         private void PlayNotificationSound()
         {
             try
@@ -866,10 +1587,6 @@ namespace sdk_popup
             }
         }
 
-        /// <summary>
-        /// Applies the current position setting to the AlertControl.
-        /// For "Center" position, we use BeforeFormShow to reposition the alert form.
-        /// </summary>
         private void ApplyPosition()
         {
             if (_alertControl == null) return;
@@ -895,7 +1612,6 @@ namespace sdk_popup
                     _alertControl.FormLocation = AlertFormLocation.BottomRight;
                     break;
                 case "center":
-                    // Use TopRight as base; BeforeFormShow will reposition to center
                     _alertControl.FormLocation = AlertFormLocation.TopRight;
                     break;
                 default:
@@ -917,6 +1633,23 @@ namespace sdk_popup
                 {
                     e.AlertForm.Opacity = _opacity / 100.0;
                 }
+
+                // Map AlertForm -> notification ID via AlertInfo.Tag
+                // and store AlertForm reference on the record for in-place updates
+                try
+                {
+                    var alertInfo = e.AlertForm.AlertInfo;
+                    if (alertInfo?.Tag is string id && !string.IsNullOrEmpty(id))
+                    {
+                        _alertFormToIdMap[e.AlertForm] = id;
+
+                        if (_notifications.TryGetValue(id, out var record))
+                        {
+                            record.AlertFormRef = e.AlertForm;
+                        }
+                    }
+                }
+                catch { }
             }
             catch { }
         }
@@ -925,7 +1658,23 @@ namespace sdk_popup
         {
             try
             {
-                RaiseNotificationClicked(_title);
+                // Try to get notification ID from AlertInfo.Tag
+                string id = null;
+                try { id = e.Info?.Tag as string; }
+                catch { }
+
+                string title = _title;
+                if (!string.IsNullOrEmpty(id) && _notifications.TryGetValue(id, out var record))
+                {
+                    title = record.Title;
+                }
+
+                RaiseNotificationClicked(title);
+
+                if (!string.IsNullOrEmpty(id))
+                {
+                    RaiseStackNotificationClicked(id, title);
+                }
             }
             catch { }
         }
@@ -934,7 +1683,37 @@ namespace sdk_popup
         {
             try
             {
-                _isVisible = false;
+                // Try to find the notification ID for this closing form
+                string id = null;
+
+                // Try via AlertForm property on the event args
+                try
+                {
+                    var alertFormProp = e.GetType().GetProperty("AlertForm");
+                    if (alertFormProp != null)
+                    {
+                        var alertForm = alertFormProp.GetValue(e);
+                        if (alertForm != null && _alertFormToIdMap.TryGetValue(alertForm, out var mappedId))
+                        {
+                            id = mappedId;
+                            _alertFormToIdMap.Remove(alertForm);
+                        }
+                    }
+                }
+                catch { }
+
+                // If we found a tracked notification, clean it up
+                if (!string.IsNullOrEmpty(id))
+                {
+                    _notifications.Remove(id);
+                    RaiseStackNotificationDismissed(id, "Timeout");
+                }
+
+                // Legacy behavior
+                if (_notifications.Count == 0)
+                {
+                    _isVisible = false;
+                }
                 RaiseNotificationDismissed("Timeout");
             }
             catch { }
@@ -948,10 +1727,7 @@ namespace sdk_popup
         {
             if (NotificationShown != null)
             {
-                try
-                {
-                    NotificationShown(title, message);
-                }
+                try { NotificationShown(title, message); }
                 catch { }
             }
         }
@@ -960,10 +1736,7 @@ namespace sdk_popup
         {
             if (NotificationDismissed != null)
             {
-                try
-                {
-                    NotificationDismissed(reason);
-                }
+                try { NotificationDismissed(reason); }
                 catch { }
             }
         }
@@ -972,10 +1745,52 @@ namespace sdk_popup
         {
             if (NotificationClicked != null)
             {
-                try
-                {
-                    NotificationClicked(title);
-                }
+                try { NotificationClicked(title); }
+                catch { }
+            }
+        }
+
+        private void RaiseStackNotificationShown(string notificationId, string title, string message)
+        {
+            if (StackNotificationShown != null)
+            {
+                try { StackNotificationShown(notificationId, title, message); }
+                catch { }
+            }
+        }
+
+        private void RaiseStackNotificationDismissed(string notificationId, string reason)
+        {
+            if (StackNotificationDismissed != null)
+            {
+                try { StackNotificationDismissed(notificationId, reason); }
+                catch { }
+            }
+        }
+
+        private void RaiseStackNotificationClicked(string notificationId, string title)
+        {
+            if (StackNotificationClicked != null)
+            {
+                try { StackNotificationClicked(notificationId, title); }
+                catch { }
+            }
+        }
+
+        private void RaiseNotificationUpdated(string notificationId, string title, string message)
+        {
+            if (NotificationUpdated != null)
+            {
+                try { NotificationUpdated(notificationId, title, message); }
+                catch { }
+            }
+        }
+
+        private void RaiseProgressChanged(string notificationId, int percent)
+        {
+            if (ProgressChanged != null)
+            {
+                try { ProgressChanged(notificationId, percent); }
                 catch { }
             }
         }
@@ -984,14 +1799,20 @@ namespace sdk_popup
 
         #region Cleanup
 
-        /// <summary>
-        /// Dispose pattern for proper cleanup
-        /// </summary>
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
+                // Close legacy image form
                 CloseImageOnlyForm();
+
+                // Close all tracked image forms
+                CloseAllImageForms();
+                _imageOnlyQueue.Clear();
+                _notifications.Clear();
+                _alertFormToIdMap.Clear();
+                _imageFormToIdMap.Clear();
+                _visibleImageFormOrder.Clear();
 
                 _customImage?.Dispose();
                 _customImage = null;
