@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Touch` style: large bold text (12/15 pt), slate colours, 440 px wide - for POS touch screens.
 
 ### Changed
-- Manifest assemblyIdentity version is now fixed at `1.0.0.0` (like the other COM controls), so host .EXE.manifest files don't need updating on every release.
+- Manifest assemblyIdentity version follows AssemblyVersion (1.6.0.0): the generated .header carries AssemblyVersion, and the host app writes that version into its .EXE.manifest dependency - they must match.
 - Hosted in a non-WinForms window (Clarion), notifications now appear on the monitor the control is on, not always the primary monitor.
 
 ### Removed
