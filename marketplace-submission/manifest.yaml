@@ -1,11 +1,11 @@
 name: "sdk_popup"
-version: "1.1.0.0"
-description: "Toast notification COM control for Clarion using DevExpress AlertControl. Displays popup/toast notifications with configurable message, title, duration, position, notification type, sound, opacity, pinned (sticky) mode, custom image sizing, and image-only floating notifications."
-short_description: "Toast notification COM control for Clarion using DevExpress AlertControl."
+version: "1.6.0.0"
+description: "Toast notification COM control for Clarion with its own WinForms notification forms (no DevExpress). Styles Default, Dark, Light, Rounded, Minimal, Touch. Displays popup/toast notifications with configurable message, title, duration, position, notification type, sound, opacity, pinned (sticky) mode, custom image sizing, and image-only floating notifications."
+short_description: "Toast notification COM control for Clarion - no third-party UI library."
 prog_id: "sdk_popup.sdk_popupControl"
 assembly_name: "sdk_popup"
 control_type: "standard"
-ui_library: "DevExpress"
+ui_library: "WinForms"
 
 repository:
   url: "https://github.com/Aarhusdk/sdk_popup"
@@ -22,9 +22,12 @@ compatibility:
     tested_versions: ["11.0", "12.0"]
 
 category: "UI Controls"
-tags: ["popup", "notification", "alert", "toast", "sound", "devexpress", "image"]
+tags: ["popup", "notification", "alert", "toast", "sound", "image", "touch"]
 
 changelog:
+  - version: "1.6.0.0"
+    date: "2026-10-13"
+    changes: "DevExpress removed: all styles drawn by the control's own notification form. Title/Message COM properties, Touch style, notifications on the host control's monitor."
   - version: "1.1.0.0"
     date: "2026-02-09"
     changes: "Add image size control, image-only floating notifications (transparent, no chrome). Improve center positioning reliability."
