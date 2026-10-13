@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.6.0] - 2026-10-13
+
+### Removed
+- **DevExpress dependency.** The `Default` style no longer uses DevExpress `AlertControl`; it is now drawn by the control's own `StyledNotificationForm` (Light look). The `DevExpress.Win` package reference is gone, so no DevExpress DLLs or license are needed. The COM interface (methods, DispIds, events) is unchanged.
+
+### Changed
+- HTML text (`ShowNotificationHtml*`, `SetHtmlEnabled`) is converted to plain text for every style: `<br>` becomes a line break, other tags are removed, entities (`&amp;` etc.) are decoded. Bold/colour markup is no longer rendered.
+- `SetMaxVisibleNotifications`, positions (incl. Center/TopCenter/BottomCenter), hover-pause, progress and in-place updates now use the same stacking logic for all styles.
+- `ShowNotification` / `ShowNotificationWithTitle` (the non-Ex methods) now go through the same stack as the Ex methods, so they no longer overlap other notifications.
+
+### Fixed
+- `DismissNotification`, `DismissAllNotifications` and disposal did not close styled notification windows (only image-only ones).
+
 ## [1.5.0] - 2026-04-16
 
 ### Added — 7 new features (completes top-10 roadmap)

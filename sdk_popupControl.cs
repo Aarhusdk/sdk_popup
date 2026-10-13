@@ -6,12 +6,11 @@ using System.IO;
 using System.Media;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using DevExpress.XtraBars.Alerter;
 
 namespace sdk_popup
 {
     /// <summary>
-    /// Toast notification COM control for Clarion using DevExpress AlertControl.
+    /// Toast notification COM control for Clarion (own WinForms notification forms, no third-party UI library).
     /// Displays popup/toast notifications with configurable message, title, duration, and position.
     /// v1.2.0: Multi-notification stacking, queuing, and per-notification ID tracking.
     /// </summary>
@@ -29,8 +28,6 @@ namespace sdk_popup
             public string Id;
             public string Title;
             public string Message;
-            public AlertInfo AlertInfo;     // null for image-only
-            public object AlertFormRef;     // AlertForm reference for in-place updates (set in BeforeFormShow)
             public Form ImageForm;          // null for standard alerts
             public Timer ImageTimer;        // null for standard alerts
             public bool IsImageOnly;
@@ -41,7 +38,6 @@ namespace sdk_popup
 
         #region Fields
 
-        private AlertControl _alertControl;
         private string _title = "Notification";
         private string _message = "";
         private int _duration = 3000;
@@ -64,7 +60,6 @@ namespace sdk_popup
 
         // --- Stacking (v1.2.0) ---
         private Dictionary<string, NotificationRecord> _notifications = new Dictionary<string, NotificationRecord>();
-        private Dictionary<object, string> _alertFormToIdMap = new Dictionary<object, string>();
         private Dictionary<Form, string> _imageFormToIdMap = new Dictionary<Form, string>();
         private List<string> _visibleImageFormOrder = new List<string>();
         private Queue<NotificationRecord> _imageOnlyQueue = new Queue<NotificationRecord>();
@@ -135,36 +130,6 @@ namespace sdk_popup
         {
             Size = new Size(1, 1);
             DoubleBuffered = true;
-        }
-
-        protected override void OnHandleCreated(EventArgs e)
-        {
-            base.OnHandleCreated(e);
-
-            if (!DesignMode)
-            {
-                InitializeAlertControl();
-            }
-        }
-
-        private void InitializeAlertControl()
-        {
-            if (_alertControl != null) return;
-
-            _alertControl = new AlertControl();
-            _alertControl.AutoFormDelay = _duration;
-            _alertControl.FormShowingEffect = AlertFormShowingEffect.FadeIn;
-            _alertControl.ShowPinButton = false;
-            _alertControl.ShowCloseButton = true;
-            _alertControl.ShowToolTips = false;
-            _alertControl.AllowHtmlText = true;  // v1.5: HTML support
-
-            _alertControl.AlertClick += AlertControl_AlertClick;
-            _alertControl.FormClosing += AlertControl_FormClosing;
-            _alertControl.BeforeFormShow += AlertControl_BeforeFormShow;
-            _alertControl.ButtonClick += AlertControl_ButtonClick;  // v1.5: action buttons
-
-            ApplyPosition();
         }
 
         #endregion
@@ -247,10 +212,6 @@ namespace sdk_popup
         public void SetDuration(int milliseconds)
         {
             _duration = Math.Max(500, milliseconds);
-            if (_alertControl != null)
-            {
-                _alertControl.AutoFormDelay = _duration;
-            }
         }
 
         [ComVisible(true)]
@@ -265,7 +226,6 @@ namespace sdk_popup
         public void SetPosition(string position)
         {
             _position = (position ?? "TopRight").Trim().Trim('"');
-            ApplyPosition();
         }
 
         [ComVisible(true)]
@@ -377,15 +337,9 @@ namespace sdk_popup
                 // Clear image queue
                 _imageOnlyQueue.Clear();
 
-                // Close alert forms
-                if (_alertControl != null)
-                {
-                    _alertControl.AlertFormList.ForEach(f => f.Close());
-                }
 
                 // Clear all tracking
                 _notifications.Clear();
-                _alertFormToIdMap.Clear();
                 _imageFormToIdMap.Clear();
                 _visibleImageFormOrder.Clear();
 
@@ -417,7 +371,7 @@ namespace sdk_popup
                 var versionStr = $"{version.Major}.{version.Minor}.{version.Build}";
 
                 MessageBox.Show(
-                    $"{name}\nVersion: {versionStr}\n\nDevExpress toast notification control for Clarion",
+                    $"{name}\nVersion: {versionStr}\n\nToast notification control for Clarion",
                     "About",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -677,14 +631,10 @@ namespace sdk_popup
         }
 
         [ComVisible(true)]
-        [Description("Enables HTML rendering for text (Default style fully supports HTML; styled forms strip tags)")]
+        [Description("Enables HTML input for text (tags are stripped, <br> becomes a line break, entities are decoded)")]
         public void SetHtmlEnabled(bool enabled)
         {
             _htmlEnabled = enabled;
-            if (_alertControl != null)
-            {
-                try { _alertControl.AllowHtmlText = true; } catch { }
-            }
         }
 
         [ComVisible(true)]
@@ -1007,12 +957,6 @@ namespace sdk_popup
         public void ClearActionButtons()
         {
             _actionButtons.Clear();
-
-            // Also clear the DevExpress AlertControl.Buttons collection
-            if (_alertControl != null)
-            {
-                try { _alertControl.Buttons.Clear(); } catch { }
-            }
         }
 
         [ComVisible(true)]
@@ -1194,14 +1138,7 @@ namespace sdk_popup
                 if (string.IsNullOrEmpty(notificationId)) return;
                 if (!_notifications.TryGetValue(notificationId, out var record)) return;
 
-                if (record.IsImageOnly || record.IsStyledForm)
-                {
-                    DismissImageFormRecord(record, "Programmatic");
-                }
-                else
-                {
-                    DismissAlertRecord(record, "Programmatic");
-                }
+                DismissImageFormRecord(record, "Programmatic");
             }
             catch (Exception ex)
             {
@@ -1214,11 +1151,6 @@ namespace sdk_popup
         public void SetMaxVisibleNotifications(int maxCount)
         {
             _maxStackSize = Math.Max(0, maxCount);
-
-            if (_alertControl != null)
-            {
-                _alertControl.FormMaxCount = _maxStackSize > 0 ? _maxStackSize : 0;
-            }
         }
 
         [ComVisible(true)]
@@ -1232,14 +1164,7 @@ namespace sdk_popup
         [Description("Gets the number of currently active (visible) notifications")]
         public int GetActiveNotificationCount()
         {
-            int count = 0;
-
-            if (_alertControl != null)
-            {
-                count += _alertControl.AlertFormList.Count;
-            }
-
-            count += _visibleImageFormOrder.Count;
+            int count = _visibleImageFormOrder.Count;
 
             return count;
         }
@@ -1269,11 +1194,6 @@ namespace sdk_popup
                 // Clear image queue
                 _imageOnlyQueue.Clear();
 
-                // Close all alert forms
-                if (_alertControl != null)
-                {
-                    _alertControl.AlertFormList.ForEach(f => f.Close());
-                }
 
                 // Fire dismissed events for all tracked notifications
                 foreach (var kvp in new Dictionary<string, NotificationRecord>(_notifications))
@@ -1283,7 +1203,6 @@ namespace sdk_popup
 
                 // Clear all tracking
                 _notifications.Clear();
-                _alertFormToIdMap.Clear();
                 _imageFormToIdMap.Clear();
                 _visibleImageFormOrder.Clear();
 
@@ -1353,14 +1272,7 @@ namespace sdk_popup
                     return true;
                 }
 
-                // Update the AlertForm controls in-place
-                if (record.AlertFormRef != null)
-                {
-                    UpdateAlertFormText(record.AlertFormRef, newTitle, newMessage);
-                }
-
-                RaiseNotificationUpdated(notificationId, newTitle, newMessage);
-                return true;
+                return false;
             }
             catch (Exception ex)
             {
@@ -1399,14 +1311,7 @@ namespace sdk_popup
                     return true;
                 }
 
-                // Find or create progress bar on the AlertForm
-                if (record.AlertFormRef != null)
-                {
-                    UpdateAlertFormProgress(record.AlertFormRef, clampedPercent);
-                }
-
-                RaiseProgressChanged(notificationId, clampedPercent);
-                return true;
+                return false;
             }
             catch (Exception ex)
             {
@@ -1451,15 +1356,7 @@ namespace sdk_popup
                     return true;
                 }
 
-                if (record.AlertFormRef != null)
-                {
-                    UpdateAlertFormText(record.AlertFormRef, newTitle, newMessage);
-                    UpdateAlertFormProgress(record.AlertFormRef, clampedPercent);
-                }
-
-                RaiseNotificationUpdated(notificationId, newTitle, newMessage);
-                RaiseProgressChanged(notificationId, clampedPercent);
-                return true;
+                return false;
             }
             catch (Exception ex)
             {
@@ -1601,12 +1498,6 @@ namespace sdk_popup
             _soundPreset       = p.SoundPreset ?? "";
             _soundEnabled      = p.SoundEnabled;
             _hoverPause        = p.HoverPause;
-
-            if (_alertControl != null)
-            {
-                _alertControl.AutoFormDelay = _duration;
-            }
-            ApplyPosition();
         }
 
         /// <summary>
@@ -1622,7 +1513,7 @@ namespace sdk_popup
 
             if (style != null) SetStyle(style);
             if (type != null) _notificationType = type;
-            if (position != null) { _position = position; ApplyPosition(); }
+            if (position != null) _position = position;
 
             if (d.ContainsKey("duration")) SetDuration(PresetManager.GetInt(d, "duration", _duration));
             if (d.ContainsKey("opacity"))  SetOpacity(PresetManager.GetInt(d, "opacity", _opacity));
@@ -1646,37 +1537,15 @@ namespace sdk_popup
         }
 
         /// <summary>
-        /// v1.5: Strips HTML tags for use in styled forms (which can't render HTML).
-        /// Leaves plain text.
+        /// v1.5: Converts HTML text to plain text for the notification forms (which draw plain text):
+        /// br-tags become line breaks, other tags are removed, entities (&amp;amp; etc.) are decoded.
         /// </summary>
         private static string StripHtml(string s)
         {
             if (string.IsNullOrEmpty(s)) return s ?? "";
-            return System.Text.RegularExpressions.Regex.Replace(s, "<[^>]+>", "");
-        }
-
-        /// <summary>
-        /// v1.5: Adds configured action buttons to the AlertControl before showing.
-        /// DevExpress fires AlertControl.ButtonClick which we map to ActionButtonClicked.
-        /// </summary>
-        private void ApplyActionButtonsToAlertControl()
-        {
-            if (_alertControl == null) return;
-            try
-            {
-                _alertControl.Buttons.Clear();
-                foreach (var b in _actionButtons)
-                {
-                    var btn = new DevExpress.XtraBars.Alerter.AlertButton();
-                    btn.Name = b.Id;
-                    btn.Hint = b.Caption;
-                    _alertControl.Buttons.Add(btn);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"sdk_popup ApplyActionButtonsToAlertControl error: {ex.Message}");
-            }
+            s = System.Text.RegularExpressions.Regex.Replace(s, @"<br\s*/?>", "\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            s = System.Text.RegularExpressions.Regex.Replace(s, "<[^>]+>", "");
+            return System.Net.WebUtility.HtmlDecode(s);
         }
 
         /// <summary>
@@ -1703,85 +1572,11 @@ namespace sdk_popup
                 return "";
             }
 
-            // Route to styled form if non-default style
-            var style = NotificationStyleRegistry.GetStyle(_styleName);
-            if (style != null)
-            {
-                return ShowStyledAlertTracked(title, message);
-            }
-
-            if (_alertControl == null) return "";
-
-            try
-            {
-                string id = GenerateNotificationId();
-
-                var info = new AlertInfo(title, message);
-                info.Image = GetDisplayImage();
-                info.Tag = id;
-
-                _alertControl.AutoFormDelay = _pinned ? int.MaxValue : _duration;
-                _alertControl.ShowPinButton = _pinned;
-                _alertControl.AllowHtmlText = _htmlEnabled
-                    ? true
-                    : false;
-                ApplyPosition();
-                ApplyActionButtonsToAlertControl();
-
-                string pos = (_position ?? "").ToLower();
-                bool needsReposition = (pos == "center" || pos == "topcenter" || pos == "bottomcenter") || _monitorIndex >= 0;
-
-                _alertControl.FormShowingEffect = needsReposition
-                    ? AlertFormShowingEffect.None
-                    : AlertFormShowingEffect.FadeIn;
-
-                var record = new NotificationRecord
-                {
-                    Id = id,
-                    Title = title,
-                    Message = message,
-                    AlertInfo = info,
-                    IsImageOnly = false
-                };
-                _notifications[id] = record;
-
-                if (_soundEnabled)
-                {
-                    PlayNotificationSound();
-                }
-
-                Form ownerForm = FindForm();
-                _alertControl.Show(ownerForm, info);
-
-                _isVisible = true;
-                RecordRecentToast();
-                RaiseNotificationShown(title, message);
-                RaiseStackNotificationShown(id, title, message);
-
-                if (needsReposition)
-                {
-                    var capturedPos = pos;
-                    BeginInvoke(new Action(() =>
-                    {
-                        try
-                        {
-                            RepositionAlertForms(capturedPos);
-                        }
-                        catch { }
-                    }));
-                }
-
-                return id;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowAlertTracked error: {ex.Message}");
-                return "";
-            }
+            return ShowStyledAlertTracked(title, message);
         }
 
         /// <summary>
-        /// Shows the DevExpress alert notification (legacy, non-tracked)
+        /// Shows a notification (legacy, non-tracked)
         /// </summary>
         private void ShowAlert()
         {
@@ -1800,65 +1595,7 @@ namespace sdk_popup
                 return;
             }
 
-            // Route to styled form if non-default style
-            var style = NotificationStyleRegistry.GetStyle(_styleName);
-            if (style != null)
-            {
-                ShowStyledAlert(_title, _message);
-                return;
-            }
-
-            if (_alertControl == null) return;
-
-            try
-            {
-                var info = new AlertInfo(_title, _message);
-                info.Image = GetDisplayImage();
-
-                _alertControl.AutoFormDelay = _pinned ? int.MaxValue : _duration;
-                _alertControl.ShowPinButton = _pinned;
-                _alertControl.AllowHtmlText = _htmlEnabled
-                    ? true
-                    : false;
-                ApplyPosition();
-                ApplyActionButtonsToAlertControl();
-
-                string pos = (_position ?? "").ToLower();
-                bool needsReposition = (pos == "center" || pos == "topcenter" || pos == "bottomcenter") || _monitorIndex >= 0;
-
-                _alertControl.FormShowingEffect = needsReposition
-                    ? AlertFormShowingEffect.None
-                    : AlertFormShowingEffect.FadeIn;
-
-                if (_soundEnabled)
-                {
-                    PlayNotificationSound();
-                }
-
-                Form ownerForm = FindForm();
-                _alertControl.Show(ownerForm, info);
-
-                _isVisible = true;
-                RecordRecentToast();
-                RaiseNotificationShown(_title, _message);
-
-                if (needsReposition)
-                {
-                    var capturedPos = pos;
-                    BeginInvoke(new Action(() =>
-                    {
-                        try
-                        {
-                            RepositionAlertForms(capturedPos);
-                        }
-                        catch { }
-                    }));
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowAlert error: {ex.Message}");
-            }
+            ShowStyledAlertTracked(_title, _message);   // tracked, so it stacks with the other notifications
         }
 
         /// <summary>
@@ -2058,44 +1795,6 @@ namespace sdk_popup
         }
 
         /// <summary>
-        /// Dismisses a tracked standard alert from its record.
-        /// </summary>
-        private void DismissAlertRecord(NotificationRecord record, string reason)
-        {
-            // Find and close the alert form
-            if (_alertControl != null && record.AlertInfo != null)
-            {
-                // Find the alert form by matching tag in our map
-                object formToClose = null;
-                foreach (var kvp in _alertFormToIdMap)
-                {
-                    if (kvp.Value == record.Id)
-                    {
-                        formToClose = kvp.Key;
-                        break;
-                    }
-                }
-
-                if (formToClose != null)
-                {
-                    _alertFormToIdMap.Remove(formToClose);
-                    try
-                    {
-                        // AlertForm inherits from Form, try to close it
-                        var closeMethod = formToClose.GetType().GetMethod("Close");
-                        closeMethod?.Invoke(formToClose, null);
-                    }
-                    catch { }
-                }
-            }
-
-            _notifications.Remove(record.Id);
-
-            RaiseNotificationDismissed(reason);
-            RaiseStackNotificationDismissed(record.Id, reason);
-        }
-
-        /// <summary>
         /// Dequeues the next image-only notification if there's room.
         /// </summary>
         private void DequeueNextImageForm()
@@ -2116,7 +1815,7 @@ namespace sdk_popup
             var ids = new List<string>(_visibleImageFormOrder);
             foreach (var id in ids)
             {
-                if (_notifications.TryGetValue(id, out var record) && record.IsImageOnly)
+                if (_notifications.TryGetValue(id, out var record) && (record.IsImageOnly || record.IsStyledForm))
                 {
                     if (record.ImageTimer != null)
                     {
@@ -2191,56 +1890,6 @@ namespace sdk_popup
 
                 form.Location = new Point(x, y);
                 cumulativeHeight += form.Height + gap;
-            }
-        }
-
-        /// <summary>
-        /// Shows a styled notification (non-tracked, legacy path).
-        /// </summary>
-        private void ShowStyledAlert(string title, string message)
-        {
-            try
-            {
-                var style = NotificationStyleRegistry.GetStyle(_styleName);
-                if (style == null) return;
-
-                Image icon = style.ShowIcon ? GetDisplayImage() : null;
-                Color? bgOverride = ParseHexColor(_backgroundColor);
-                Color? textOverride = ParseHexColor(_textColor);
-
-                var form = new StyledNotificationForm(
-                    style, StripHtml(title), StripHtml(message), _notificationType,
-                    icon, _opacity, _pinned, _duration,
-                    bgOverride, textOverride, _hoverPause,
-                    _actionButtons.Count > 0 ? new List<ActionButton>(_actionButtons) : null);
-
-                form.Dismissed += (reason) =>
-                {
-                    _isVisible = false;
-                    LogToHistory(title, message, _notificationType, reason);
-                    RaiseNotificationDismissed(reason);
-                };
-
-                form.Clicked += () =>
-                {
-                    RaiseNotificationClicked(title);
-                };
-
-                PositionImageOnlyForm(form);
-
-                if (_soundEnabled)
-                {
-                    PlayNotificationSound();
-                }
-
-                form.Show();
-                _isVisible = true;
-                RecordRecentToast();
-                RaiseNotificationShown(title, message);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowStyledAlert error: {ex.Message}");
             }
         }
 
@@ -2403,167 +2052,6 @@ namespace sdk_popup
             }
         }
 
-        /// <summary>
-        /// Repositions all active alert forms to center positions.
-        /// </summary>
-        private void RepositionAlertForms(string pos)
-        {
-            if (_alertControl == null) return;
-
-            var forms = _alertControl.AlertFormList;
-            if (forms == null || forms.Count == 0) return;
-
-            Screen screen = GetTargetScreen();
-            Rectangle workArea = screen.WorkingArea;
-
-            for (int i = 0; i < forms.Count; i++)
-            {
-                var alertForm = forms[i];
-                int x, y;
-
-                switch (pos)
-                {
-                    case "topleft":
-                        x = workArea.Left + 10;
-                        y = workArea.Top + 10 + i * (alertForm.Height + 6);
-                        break;
-                    case "topright":
-                        x = workArea.Right - alertForm.Width - 10;
-                        y = workArea.Top + 10 + i * (alertForm.Height + 6);
-                        break;
-                    case "bottomleft":
-                        x = workArea.Left + 10;
-                        y = workArea.Bottom - alertForm.Height - 10 - i * (alertForm.Height + 6);
-                        break;
-                    case "bottomright":
-                        x = workArea.Right - alertForm.Width - 10;
-                        y = workArea.Bottom - alertForm.Height - 10 - i * (alertForm.Height + 6);
-                        break;
-                    case "topcenter":
-                        x = workArea.Left + (workArea.Width - alertForm.Width) / 2;
-                        y = workArea.Top + 10 + i * (alertForm.Height + 6);
-                        break;
-                    case "bottomcenter":
-                        x = workArea.Left + (workArea.Width - alertForm.Width) / 2;
-                        y = workArea.Bottom - alertForm.Height - 10 - i * (alertForm.Height + 6);
-                        break;
-                    case "center":
-                    default:
-                        x = workArea.Left + (workArea.Width - alertForm.Width) / 2;
-                        y = workArea.Top + (workArea.Height - alertForm.Height) / 2;
-                        break;
-                }
-
-                alertForm.Location = new Point(x, y);
-            }
-        }
-
-        /// <summary>
-        /// Updates text labels on a DevExpress AlertForm by traversing child controls.
-        /// AlertForm contains a panel with LabelControl children for caption and text.
-        /// </summary>
-        private void UpdateAlertFormText(object alertFormRef, string title, string message)
-        {
-            try
-            {
-                var form = alertFormRef as Form;
-                if (form == null || form.IsDisposed) return;
-
-                // DevExpress AlertForm uses nested controls. Walk all controls to find text elements.
-                // The AlertForm typically has: a caption label (bold) and a text label.
-                bool foundCaption = false;
-                foreach (Control ctrl in form.Controls)
-                {
-                    UpdateControlTextRecursive(ctrl, title, message, ref foundCaption);
-                }
-
-                form.Invalidate(true);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"sdk_popup UpdateAlertFormText error: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Recursively searches for DevExpress LabelControl or Label controls to update text.
-        /// The first text control found is treated as the caption/title, the second as the message.
-        /// </summary>
-        private void UpdateControlTextRecursive(Control control, string title, string message, ref bool foundCaption)
-        {
-            // Check if this is a text-displaying control (LabelControl or Label)
-            string typeName = control.GetType().Name;
-            if (typeName == "LabelControl" || typeName == "Label")
-            {
-                if (!foundCaption)
-                {
-                    control.Text = title;
-                    foundCaption = true;
-                }
-                else
-                {
-                    control.Text = message;
-                    return; // Found both, done
-                }
-            }
-
-            // Recurse into child controls
-            foreach (Control child in control.Controls)
-            {
-                UpdateControlTextRecursive(child, title, message, ref foundCaption);
-            }
-        }
-
-        /// <summary>
-        /// Finds or creates a ProgressBar on the AlertForm and sets its value.
-        /// </summary>
-        private void UpdateAlertFormProgress(object alertFormRef, int percent)
-        {
-            try
-            {
-                var form = alertFormRef as Form;
-                if (form == null || form.IsDisposed) return;
-
-                // Find existing ProgressBar
-                ProgressBar progressBar = FindControlRecursive<ProgressBar>(form);
-
-                if (progressBar == null)
-                {
-                    // Create a progress bar at the bottom of the alert form
-                    progressBar = new ProgressBar();
-                    progressBar.Minimum = 0;
-                    progressBar.Maximum = 100;
-                    progressBar.Height = 8;
-                    progressBar.Dock = DockStyle.Bottom;
-                    progressBar.Style = ProgressBarStyle.Continuous;
-                    form.Controls.Add(progressBar);
-                    progressBar.BringToFront();
-                }
-
-                progressBar.Value = percent;
-                progressBar.Visible = true;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"sdk_popup UpdateAlertFormProgress error: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Finds the first control of type T in the form's control hierarchy.
-        /// </summary>
-        private T FindControlRecursive<T>(Control parent) where T : Control
-        {
-            foreach (Control child in parent.Controls)
-            {
-                if (child is T match) return match;
-
-                T found = FindControlRecursive<T>(child);
-                if (found != null) return found;
-            }
-            return null;
-        }
-
         private Image GetDisplayImage()
         {
             Image source = _customImage ?? GetNotificationIcon();
@@ -2680,264 +2168,6 @@ namespace sdk_popup
             try { fallback.Play(); } catch { }
         }
 
-        private void ApplyPosition()
-        {
-            if (_alertControl == null) return;
-
-            switch ((_position ?? "TopRight").ToLower())
-            {
-                case "topleft":
-                    _alertControl.FormLocation = AlertFormLocation.TopLeft;
-                    break;
-                case "topcenter":
-                    _alertControl.FormLocation = AlertFormLocation.TopRight;
-                    break;
-                case "topright":
-                    _alertControl.FormLocation = AlertFormLocation.TopRight;
-                    break;
-                case "bottomleft":
-                    _alertControl.FormLocation = AlertFormLocation.BottomLeft;
-                    break;
-                case "bottomcenter":
-                    _alertControl.FormLocation = AlertFormLocation.BottomRight;
-                    break;
-                case "bottomright":
-                    _alertControl.FormLocation = AlertFormLocation.BottomRight;
-                    break;
-                case "center":
-                    _alertControl.FormLocation = AlertFormLocation.TopRight;
-                    break;
-                default:
-                    _alertControl.FormLocation = AlertFormLocation.TopRight;
-                    break;
-            }
-        }
-
-        #endregion
-
-        #region Event Handlers
-
-        private void AlertControl_BeforeFormShow(object sender, AlertFormEventArgs e)
-        {
-            try
-            {
-                // Apply opacity
-                if (_opacity < 100)
-                {
-                    e.AlertForm.Opacity = _opacity / 100.0;
-                }
-
-                // Map AlertForm -> notification ID via AlertInfo.Tag
-                // and store AlertForm reference on the record for in-place updates
-                try
-                {
-                    var alertInfo = e.AlertForm.AlertInfo;
-                    if (alertInfo?.Tag is string id && !string.IsNullOrEmpty(id))
-                    {
-                        _alertFormToIdMap[e.AlertForm] = id;
-
-                        if (_notifications.TryGetValue(id, out var record))
-                        {
-                            record.AlertFormRef = e.AlertForm;
-                        }
-                    }
-                }
-                catch { }
-
-                // Hover-pause: stop/start the AlertForm's internal auto-close timer on mouse enter/leave
-                if (_hoverPause && !_pinned)
-                {
-                    AttachHoverPauseToAlertForm(e.AlertForm);
-                }
-            }
-            catch { }
-        }
-
-        /// <summary>
-        /// Attaches hover-pause handlers to a DevExpress AlertForm.
-        /// Uses reflection to locate the internal auto-close timer (field name varies by DevExpress version).
-        /// Silently degrades if the timer cannot be located.
-        /// </summary>
-        private void AttachHoverPauseToAlertForm(Form alertForm)
-        {
-            if (alertForm == null) return;
-
-            object timer = FindTimerViaReflection(alertForm);
-            if (timer == null)
-            {
-                System.Diagnostics.Trace.WriteLine("sdk_popup: hover-pause not applied (AlertForm timer not found via reflection)");
-                return;
-            }
-
-            EventHandler onEnter = (s, _) => TrySetTimerEnabled(timer, false);
-            EventHandler onLeave = (s, _) =>
-            {
-                try
-                {
-                    if (!alertForm.IsDisposed &&
-                        !alertForm.ClientRectangle.Contains(alertForm.PointToClient(Cursor.Position)))
-                    {
-                        TrySetTimerEnabled(timer, true);
-                    }
-                }
-                catch { }
-            };
-
-            alertForm.MouseEnter += onEnter;
-            alertForm.MouseLeave += onLeave;
-            AttachHoverRecursive(alertForm, onEnter, onLeave);
-        }
-
-        /// <summary>
-        /// Recursively attaches mouse enter/leave handlers to all child controls
-        /// (AlertForm has labels, images, buttons that otherwise swallow MouseLeave from parent).
-        /// </summary>
-        private void AttachHoverRecursive(Control parent, EventHandler onEnter, EventHandler onLeave)
-        {
-            foreach (Control child in parent.Controls)
-            {
-                child.MouseEnter += onEnter;
-                child.MouseLeave += onLeave;
-                AttachHoverRecursive(child, onEnter, onLeave);
-            }
-        }
-
-        /// <summary>
-        /// Walks the form type hierarchy looking for any Timer field (DevExpress AlertForm's internal timer).
-        /// </summary>
-        private object FindTimerViaReflection(Form form)
-        {
-            var type = form.GetType();
-            var flags = System.Reflection.BindingFlags.Instance
-                      | System.Reflection.BindingFlags.NonPublic
-                      | System.Reflection.BindingFlags.Public;
-
-            while (type != null && type != typeof(object))
-            {
-                foreach (var field in type.GetFields(flags))
-                {
-                    object val;
-                    try { val = field.GetValue(form); } catch { continue; }
-                    if (val is Timer) return val;
-                }
-                type = type.BaseType;
-            }
-            return null;
-        }
-
-        private void TrySetTimerEnabled(object timer, bool enabled)
-        {
-            try
-            {
-                if (timer is Timer t)
-                {
-                    if (enabled) t.Start();
-                    else t.Stop();
-                }
-            }
-            catch { }
-        }
-
-        private void AlertControl_AlertClick(object sender, AlertClickEventArgs e)
-        {
-            try
-            {
-                // Try to get notification ID from AlertInfo.Tag
-                string id = null;
-                try { id = e.Info?.Tag as string; }
-                catch { }
-
-                string title = _title;
-                if (!string.IsNullOrEmpty(id) && _notifications.TryGetValue(id, out var record))
-                {
-                    title = record.Title;
-                }
-
-                RaiseNotificationClicked(title);
-
-                if (!string.IsNullOrEmpty(id))
-                {
-                    RaiseStackNotificationClicked(id, title);
-                }
-            }
-            catch { }
-        }
-
-        private void AlertControl_FormClosing(object sender, AlertFormClosingEventArgs e)
-        {
-            try
-            {
-                // Try to find the notification ID for this closing form
-                string id = null;
-                string closingTitle = _title;
-                string closingMessage = _message;
-
-                // Try via AlertForm property on the event args
-                try
-                {
-                    var alertFormProp = e.GetType().GetProperty("AlertForm");
-                    if (alertFormProp != null)
-                    {
-                        var alertForm = alertFormProp.GetValue(e);
-                        if (alertForm != null && _alertFormToIdMap.TryGetValue(alertForm, out var mappedId))
-                        {
-                            id = mappedId;
-                            _alertFormToIdMap.Remove(alertForm);
-                        }
-                    }
-                }
-                catch { }
-
-                // If we found a tracked notification, clean it up
-                if (!string.IsNullOrEmpty(id))
-                {
-                    if (_notifications.TryGetValue(id, out var record))
-                    {
-                        closingTitle = record.Title;
-                        closingMessage = record.Message;
-                    }
-                    _notifications.Remove(id);
-                    RaiseStackNotificationDismissed(id, "Timeout");
-                }
-
-                // v1.5: history log
-                LogToHistory(closingTitle, closingMessage, _notificationType, "Timeout");
-
-                // Legacy behavior
-                if (_notifications.Count == 0)
-                {
-                    _isVisible = false;
-                }
-                RaiseNotificationDismissed("Timeout");
-            }
-            catch { }
-        }
-
-        /// <summary>
-        /// v1.5: Routes DevExpress AlertControl.ButtonClick -> ActionButtonClicked COM event.
-        /// </summary>
-        private void AlertControl_ButtonClick(object sender, AlertButtonClickEventArgs e)
-        {
-            try
-            {
-                string buttonId = e?.Button?.Name ?? "";
-                string notifId = "";
-
-                try
-                {
-                    var info = e?.Info;
-                    if (info?.Tag is string id) notifId = id;
-                }
-                catch { }
-
-                RaiseActionButtonClicked(notifId, buttonId);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"sdk_popup AlertControl_ButtonClick error: {ex.Message}");
-            }
-        }
-
         #endregion
 
         #region Event Raising Methods
@@ -3038,22 +2268,11 @@ namespace sdk_popup
                 CloseAllImageForms();
                 _imageOnlyQueue.Clear();
                 _notifications.Clear();
-                _alertFormToIdMap.Clear();
                 _imageFormToIdMap.Clear();
                 _visibleImageFormOrder.Clear();
 
                 _customImage?.Dispose();
                 _customImage = null;
-
-                if (_alertControl != null)
-                {
-                    _alertControl.AlertClick -= AlertControl_AlertClick;
-                    _alertControl.FormClosing -= AlertControl_FormClosing;
-                    _alertControl.BeforeFormShow -= AlertControl_BeforeFormShow;
-                    _alertControl.ButtonClick -= AlertControl_ButtonClick;
-                    _alertControl.Dispose();
-                    _alertControl = null;
-                }
             }
 
             base.Dispose(disposing);

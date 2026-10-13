@@ -308,7 +308,7 @@ namespace sdk_popup
 
         /// <summary>
         /// Sets the notification style: Default, Dark, Light, Rounded, Minimal.
-        /// Default uses DevExpress AlertControl. Other styles use custom modern forms.
+        /// All styles are drawn by the control's own notification form (no third-party UI library).
         /// </summary>
         [DispId(52)]
         void SetStyle(string styleName);
@@ -389,8 +389,8 @@ namespace sdk_popup
 
         /// <summary>
         /// Shows a notification with HTML-formatted message text.
-        /// HTML is rendered natively by DevExpress AlertControl (Default style only).
-        /// Styled notifications strip HTML tags and render plain text.
+        /// HTML is converted to plain text: br-tags become line breaks, other tags are removed,
+        /// entities are decoded.
         /// </summary>
         [DispId(63)]
         void ShowNotificationHtml(string htmlMessage);

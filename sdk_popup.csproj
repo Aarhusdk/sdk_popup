@@ -34,11 +34,6 @@
     <EmbeddedResource Remove="Template\**\*" />
   </ItemGroup>
 
-  <!-- DevExpress WinForms packages -->
-  <ItemGroup>
-    <PackageReference Include="DevExpress.Win" Version="24.*" />
-  </ItemGroup>
-
   <PropertyGroup>
     <!-- Deploy path structure: Clarion/accessory/bin and Clarion/accessory/resources -->
     <ClarionDeployPath>$(ProjectDir)..\Clarion\</ClarionDeployPath>

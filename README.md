@@ -1,10 +1,10 @@
 # sdk_popup
 
-Toast notification COM control for Clarion using DevExpress AlertControl.
+Toast notification COM control for Clarion. No third-party UI library (DevExpress removed in v1.6.0).
 
 ## Overview
 
-This is a ClarionCOM control that provides toast/popup notifications for Clarion for Windows applications. It uses the DevExpress `AlertControl` component to display professional-looking notification popups with configurable title, message, duration, position, and type.
+This is a ClarionCOM control that provides toast/popup notifications for Clarion for Windows applications. It draws its own WinForms notification forms (styles Default, Dark, Light, Rounded, Minimal) with configurable title, message, duration, position, and type.
 
 **ProgID:** `sdk_popup.sdk_popupControl`
 
@@ -12,7 +12,6 @@ This is a ClarionCOM control that provides toast/popup notifications for Clarion
 
 - .NET Framework 4.7.2 or later
 - Clarion 11.0 or later
-- DevExpress WinForms (v24+)
 
 ## Features
 
@@ -28,7 +27,6 @@ This is a ClarionCOM control that provides toast/popup notifications for Clarion
 
 Copy the contents of the `Clarion/accessory/` folder to your Clarion accessory folder:
 - `bin/sdk_popup.dll` - The compiled control
-- `bin/DevExpress.*.dll` - DevExpress dependency DLLs
 - `resources/sdk_popup.manifest` - Registration-free COM manifest
 - `resources/sdk_popup.sdk_popupControl.*` - Metadata files
 

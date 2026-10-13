@@ -4,12 +4,12 @@ namespace sdk_popup
 {
     /// <summary>
     /// Registry of predefined notification styles and accent color mapping.
-    /// Returns null for "Default" to signal: use DevExpress AlertControl path.
+    /// "Default" (and unknown names) use the Light look, so every style is drawn by StyledNotificationForm.
     /// </summary>
     internal static class NotificationStyleRegistry
     {
         /// <summary>
-        /// Gets a style by name. Returns null for "Default" or unknown names.
+        /// Gets a style by name. "Default" and unknown names return the Default style (never null).
         /// </summary>
         public static NotificationStyle GetStyle(string styleName)
         {
@@ -19,7 +19,7 @@ namespace sdk_popup
                 case "light": return CreateLightStyle();
                 case "rounded": return CreateRoundedStyle();
                 case "minimal": return CreateMinimalStyle();
-                default: return null;
+                default: return CreateDefaultStyle();
             }
         }
 
@@ -70,6 +70,13 @@ namespace sdk_popup
                 ProgressBarHeight = 4,
                 UseDropShadow = true
             };
+        }
+
+        private static NotificationStyle CreateDefaultStyle()
+        {
+            var style = CreateLightStyle();
+            style.Name = "Default";
+            return style;
         }
 
         private static NotificationStyle CreateLightStyle()
