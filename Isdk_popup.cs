@@ -324,5 +324,281 @@ namespace sdk_popup
         /// </summary>
         [DispId(54)]
         string GetAvailableStyles();
+
+        // --- Sound Preset (v1.4.0) ---
+
+        /// <summary>
+        /// Sets a built-in sound preset: Success, Error, Warning, Chime, Ding, Silent.
+        /// Takes precedence over SetSoundPath when both are set.
+        /// </summary>
+        [DispId(55)]
+        void SetSoundPreset(string preset);
+
+        /// <summary>
+        /// Gets the current sound preset name (empty string if none)
+        /// </summary>
+        [DispId(56)]
+        string GetSoundPreset();
+
+        // --- Deduplication & Rate Limiting (v1.4.0) ---
+
+        /// <summary>
+        /// Enables deduplication: showing a notification with the same title+message
+        /// as a currently visible one will update the existing notification in-place
+        /// instead of creating a new one. Only applies to tracked (*Ex) methods.
+        /// </summary>
+        [DispId(57)]
+        void SetDeduplication(bool enabled);
+
+        /// <summary>
+        /// Gets whether deduplication is enabled
+        /// </summary>
+        [DispId(58)]
+        bool GetDeduplication();
+
+        /// <summary>
+        /// Sets the maximum number of notifications allowed per second.
+        /// Excess notifications within the same 1-second window are dropped.
+        /// 0 = no limit (default).
+        /// </summary>
+        [DispId(59)]
+        void SetRateLimit(int maxPerSecond);
+
+        /// <summary>
+        /// Gets the current rate limit (0 = unlimited)
+        /// </summary>
+        [DispId(60)]
+        int GetRateLimit();
+
+        // --- Hover Pause (v1.4.0) ---
+
+        /// <summary>
+        /// Enables pausing the auto-dismiss timer while the mouse is over the notification.
+        /// Timer resumes when the mouse leaves. Default: enabled.
+        /// </summary>
+        [DispId(61)]
+        void SetHoverPause(bool enabled);
+
+        /// <summary>
+        /// Gets whether hover-pause is enabled
+        /// </summary>
+        [DispId(62)]
+        bool GetHoverPause();
+
+        // --- HTML Rich Text (v1.5.0) ---
+
+        /// <summary>
+        /// Shows a notification with HTML-formatted message text.
+        /// HTML is rendered natively by DevExpress AlertControl (Default style only).
+        /// Styled notifications strip HTML tags and render plain text.
+        /// </summary>
+        [DispId(63)]
+        void ShowNotificationHtml(string htmlMessage);
+
+        /// <summary>
+        /// Shows a notification with HTML title and message
+        /// </summary>
+        [DispId(64)]
+        void ShowNotificationWithTitleHtml(string title, string htmlMessage);
+
+        /// <summary>
+        /// Shows a notification with HTML content and returns a notification ID
+        /// </summary>
+        [DispId(65)]
+        string ShowNotificationHtmlEx(string title, string htmlMessage);
+
+        /// <summary>
+        /// Enables or disables HTML rendering for all subsequent notifications
+        /// </summary>
+        [DispId(66)]
+        void SetHtmlEnabled(bool enabled);
+
+        /// <summary>
+        /// Gets whether HTML rendering is enabled
+        /// </summary>
+        [DispId(67)]
+        bool GetHtmlEnabled();
+
+        // --- Multi-Monitor (v1.5.0) ---
+
+        /// <summary>
+        /// Sets the display monitor: -1 = auto (follow owner window), 0+ = specific monitor index
+        /// </summary>
+        [DispId(68)]
+        void SetDisplayMonitor(int monitorIndex);
+
+        /// <summary>
+        /// Gets the configured display monitor index
+        /// </summary>
+        [DispId(69)]
+        int GetDisplayMonitor();
+
+        /// <summary>
+        /// Gets the number of monitors available on the system
+        /// </summary>
+        [DispId(70)]
+        int GetMonitorCount();
+
+        // --- ShowPending / Resolve / Reject (v1.5.0) ---
+
+        /// <summary>
+        /// Shows a pinned "in progress" notification with initial 0% progress.
+        /// Use for long-running operations. Returns a notification ID for Resolve/Reject.
+        /// </summary>
+        [DispId(71)]
+        string ShowPending(string title, string message);
+
+        /// <summary>
+        /// Resolves a pending notification with success state.
+        /// Changes type to Success, sets progress 100%, unpins, auto-dismisses.
+        /// </summary>
+        [DispId(72)]
+        bool ResolveNotification(string notificationId, string successMessage);
+
+        /// <summary>
+        /// Rejects a pending notification with error state.
+        /// Changes type to Error. Stays pinned so user must acknowledge.
+        /// </summary>
+        [DispId(73)]
+        bool RejectNotification(string notificationId, string errorMessage);
+
+        // --- Do Not Disturb (v1.5.0) ---
+
+        /// <summary>
+        /// Enables or disables Do Not Disturb mode.
+        /// When DND is active, all notifications are suppressed and logged to history (if enabled).
+        /// </summary>
+        [DispId(74)]
+        void SetDoNotDisturb(bool enabled);
+
+        /// <summary>
+        /// Gets whether DND is currently active (checks manual, timer, and schedule)
+        /// </summary>
+        [DispId(75)]
+        bool GetDoNotDisturb();
+
+        /// <summary>
+        /// Enables DND for the specified number of minutes, then auto-disables.
+        /// 0 = disable timer.
+        /// </summary>
+        [DispId(76)]
+        void SetDoNotDisturbMinutes(int minutes);
+
+        /// <summary>
+        /// Sets a daily DND schedule (e.g. "22:00" to "07:00" for night-time quiet).
+        /// Times are in 24h HH:MM format. Pass empty strings to clear.
+        /// </summary>
+        [DispId(77)]
+        void SetDoNotDisturbSchedule(string startHHMM, string endHHMM);
+
+        /// <summary>
+        /// Clears the DND schedule (equivalent to SetDoNotDisturbSchedule("",""))
+        /// </summary>
+        [DispId(78)]
+        void ClearDoNotDisturbSchedule();
+
+        /// <summary>
+        /// Returns why DND is active: "manual", "timer", "scheduled", or "" (not active)
+        /// </summary>
+        [DispId(79)]
+        string GetDoNotDisturbReason();
+
+        // --- Notification History (v1.5.0) ---
+
+        /// <summary>
+        /// Enables or disables notification history logging (default: false)
+        /// </summary>
+        [DispId(80)]
+        void SetHistoryEnabled(bool enabled);
+
+        /// <summary>
+        /// Gets whether history logging is enabled
+        /// </summary>
+        [DispId(81)]
+        bool GetHistoryEnabled();
+
+        /// <summary>
+        /// Sets maximum number of history entries to retain (default: 50)
+        /// </summary>
+        [DispId(82)]
+        void SetHistoryMaxSize(int maxSize);
+
+        /// <summary>
+        /// Gets the number of notifications currently in history
+        /// </summary>
+        [DispId(83)]
+        int GetHistoryCount();
+
+        /// <summary>
+        /// Returns a JSON-formatted history entry. Index 0 = newest, higher = older.
+        /// Returns empty string if index is out of range.
+        /// Fields: {"timestamp":"...","title":"...","message":"...","type":"...","reason":"..."}
+        /// </summary>
+        [DispId(84)]
+        string GetHistoryItemJson(int index);
+
+        /// <summary>
+        /// Clears all history entries
+        /// </summary>
+        [DispId(85)]
+        void ClearHistory();
+
+        // --- JSON Presets (v1.5.0) ---
+
+        /// <summary>
+        /// Saves current notification settings (style, type, position, duration, etc.) as a named preset.
+        /// Presets persist to %APPDATA%\sdk_popup\presets.json
+        /// </summary>
+        [DispId(86)]
+        void SavePreset(string name);
+
+        /// <summary>
+        /// Loads a preset by name, applying all its settings.
+        /// Returns true if the preset was found.
+        /// </summary>
+        [DispId(87)]
+        bool LoadPreset(string name);
+
+        /// <summary>
+        /// Deletes a preset by name. Returns true if found and deleted.
+        /// </summary>
+        [DispId(88)]
+        bool DeletePreset(string name);
+
+        /// <summary>
+        /// Returns a comma-separated list of saved preset names
+        /// </summary>
+        [DispId(89)]
+        string ListPresets();
+
+        /// <summary>
+        /// Shows a notification from a JSON configuration string.
+        /// JSON fields: title, message, style, type, position, duration, opacity, pinned.
+        /// Returns notification ID.
+        /// </summary>
+        [DispId(90)]
+        string ShowFromJson(string jsonConfig);
+
+        // --- Action Buttons (v1.5.0) ---
+
+        /// <summary>
+        /// Adds a clickable action button to upcoming notifications.
+        /// Buttons persist until ClearActionButtons is called.
+        /// Max 3 buttons recommended for readability.
+        /// </summary>
+        [DispId(91)]
+        void AddActionButton(string buttonId, string caption, bool isPrimary);
+
+        /// <summary>
+        /// Removes all action buttons
+        /// </summary>
+        [DispId(92)]
+        void ClearActionButtons();
+
+        /// <summary>
+        /// Gets the current number of configured action buttons
+        /// </summary>
+        [DispId(93)]
+        int GetActionButtonCount();
     }
 }

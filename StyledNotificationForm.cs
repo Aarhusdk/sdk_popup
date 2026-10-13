@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
@@ -10,6 +11,7 @@ namespace sdk_popup
     /// Custom borderless notification form with GDI+ rendering.
     /// Supports rounded corners, accent bars, fade-in animation, close button,
     /// progress bar, and in-place text/progress updates.
+    /// v1.5: action buttons rendered at the bottom of the form.
     /// </summary>
     internal class StyledNotificationForm : Form
     {
@@ -21,7 +23,12 @@ namespace sdk_popup
         private readonly double _targetOpacity;
         private readonly bool _pinned;
         private readonly int _duration;
+        private readonly bool _hoverPause;
         private int _progressPercent = -1; // -1 = no progress bar
+
+        // v1.5: Action buttons
+        private readonly List<ActionButtonLayout> _actionButtons = new List<ActionButtonLayout>();
+        private int _actionButtonAreaHeight;  // 0 if no buttons
 
         private Timer _fadeInTimer;
         private Timer _autoCloseTimer;
@@ -37,6 +44,16 @@ namespace sdk_popup
 
         public event Action<string> Dismissed;
         public event Action Clicked;
+        public event Action<string> ActionClicked;  // v1.5: fires buttonId
+
+        private class ActionButtonLayout
+        {
+            public string Id;
+            public string Caption;
+            public bool IsPrimary;
+            public Rectangle Bounds;
+            public bool Hovered;
+        }
 
         public StyledNotificationForm(
             NotificationStyle style,
@@ -48,7 +65,9 @@ namespace sdk_popup
             bool pinned,
             int duration,
             Color? bgOverride = null,
-            Color? textOverride = null)
+            Color? textOverride = null,
+            bool hoverPause = true,
+            List<ActionButton> actionButtons = null)
         {
             _style = style;
             _title = title ?? "";
@@ -58,8 +77,27 @@ namespace sdk_popup
             _targetOpacity = Math.Max(0.1, Math.Min(1.0, opacity / 100.0));
             _pinned = pinned;
             _duration = Math.Max(500, duration);
+            _hoverPause = hoverPause;
             _bgOverride = bgOverride;
             _textOverride = textOverride;
+
+            // v1.5: snapshot action buttons (immutable after construction)
+            if (actionButtons != null)
+            {
+                foreach (var b in actionButtons)
+                {
+                    _actionButtons.Add(new ActionButtonLayout
+                    {
+                        Id = b.Id,
+                        Caption = b.Caption,
+                        IsPrimary = b.IsPrimary
+                    });
+                }
+                if (_actionButtons.Count > 0)
+                {
+                    _actionButtonAreaHeight = 36;  // 28 button + 8 padding
+                }
+            }
 
             InitializeForm();
         }
@@ -307,6 +345,12 @@ namespace sdk_popup
                 }
             }
 
+            // 7b. Action buttons (v1.5) — drawn above progress bar
+            if (_actionButtons.Count > 0)
+            {
+                DrawActionButtons(g, bounds);
+            }
+
             // 8. Progress bar
             if (_progressPercent >= 0)
             {
@@ -360,6 +404,87 @@ namespace sdk_popup
                 return _style.BackgroundColor;
             // Rounded style: derive from accent color
             return Color.FromArgb(220, _accentColor.R, _accentColor.G, _accentColor.B);
+        }
+
+        /// <summary>
+        /// v1.5: Renders action buttons at the bottom of the form and records their hit-test rects.
+        /// </summary>
+        private void DrawActionButtons(Graphics g, Rectangle bounds)
+        {
+            int bottomReserve = (_style.ShowBottomBorder ? _style.BottomBorderHeight : 0)
+                              + (_progressPercent >= 0 ? _style.ProgressBarHeight + 4 : 0);
+
+            int buttonsY = bounds.Height - bottomReserve - _actionButtonAreaHeight + 4;
+            int buttonHeight = 24;
+            int buttonGap = 6;
+            int rightEdge = bounds.Width - _style.PaddingRight;
+
+            // Right-align buttons
+            int totalWidth = 0;
+            int[] widths = new int[_actionButtons.Count];
+            using (var font = new Font(_style.FontFamily, 9f, FontStyle.Regular, GraphicsUnit.Point))
+            {
+                for (int i = 0; i < _actionButtons.Count; i++)
+                {
+                    var textSize = g.MeasureString(_actionButtons[i].Caption, font);
+                    widths[i] = Math.Max(64, (int)Math.Ceiling(textSize.Width) + 24);
+                    totalWidth += widths[i];
+                }
+                totalWidth += buttonGap * Math.Max(0, _actionButtons.Count - 1);
+
+                int x = rightEdge - totalWidth;
+
+                for (int i = 0; i < _actionButtons.Count; i++)
+                {
+                    var btn = _actionButtons[i];
+                    btn.Bounds = new Rectangle(x, buttonsY, widths[i], buttonHeight);
+
+                    Color bgFill;
+                    Color textColor;
+                    Color borderColor;
+
+                    if (btn.IsPrimary)
+                    {
+                        bgFill = btn.Hovered
+                            ? Color.FromArgb(Math.Min(255, _accentColor.R + 20),
+                                             Math.Min(255, _accentColor.G + 20),
+                                             Math.Min(255, _accentColor.B + 20))
+                            : _accentColor;
+                        textColor = Color.White;
+                        borderColor = _accentColor;
+                    }
+                    else
+                    {
+                        bgFill = btn.Hovered ? Color.FromArgb(40, _accentColor) : Color.Transparent;
+                        textColor = _textOverride ?? _style.TitleColor;
+                        borderColor = Color.FromArgb(120, _accentColor);
+                    }
+
+                    using (var path = CreateRoundedRectPath(btn.Bounds, 6))
+                    {
+                        if (bgFill != Color.Transparent)
+                        {
+                            using (var brush = new SolidBrush(bgFill))
+                            {
+                                g.FillPath(brush, path);
+                            }
+                        }
+                        using (var pen = new Pen(borderColor, 1f))
+                        {
+                            g.DrawPath(pen, path);
+                        }
+                    }
+
+                    using (var textBrush = new SolidBrush(textColor))
+                    {
+                        var textRect = new RectangleF(btn.Bounds.X, btn.Bounds.Y, btn.Bounds.Width, btn.Bounds.Height);
+                        var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                        g.DrawString(btn.Caption, font, textBrush, textRect, sf);
+                    }
+
+                    x += widths[i] + buttonGap;
+                }
+            }
         }
 
         #endregion
@@ -474,6 +599,12 @@ namespace sdk_popup
                 height += _style.BottomBorderHeight;
             }
 
+            // v1.5: action buttons area
+            if (_actionButtonAreaHeight > 0)
+            {
+                height += _actionButtonAreaHeight;
+            }
+
             return Math.Max(height, 48);
         }
 
@@ -569,6 +700,37 @@ namespace sdk_popup
 
         #region Mouse Interaction
 
+        protected override void OnMouseEnter(EventArgs e)
+        {
+            base.OnMouseEnter(e);
+            if (_hoverPause && !_pinned)
+            {
+                _autoCloseTimer?.Stop();
+            }
+        }
+
+        protected override void OnMouseLeave(EventArgs e)
+        {
+            base.OnMouseLeave(e);
+
+            // Handle close-button hover-out
+            if (_closeButtonHovered)
+            {
+                _closeButtonHovered = false;
+                Cursor = Cursors.Default;
+                Invalidate(_closeButtonRect);
+            }
+
+            // Resume auto-close timer only if mouse truly left the form
+            if (_hoverPause && !_pinned && _autoCloseTimer != null)
+            {
+                if (!ClientRectangle.Contains(PointToClient(Cursor.Position)))
+                {
+                    _autoCloseTimer.Start();
+                }
+            }
+        }
+
         protected override void OnMouseMove(MouseEventArgs e)
         {
             base.OnMouseMove(e);
@@ -583,6 +745,27 @@ namespace sdk_popup
                     Invalidate(_closeButtonRect);
                 }
             }
+
+            // v1.5: action button hover
+            foreach (var btn in _actionButtons)
+            {
+                bool was = btn.Hovered;
+                btn.Hovered = btn.Bounds.Contains(e.Location);
+                if (was != btn.Hovered)
+                {
+                    Invalidate(btn.Bounds);
+                }
+            }
+
+            if (!_closeButtonHovered)
+            {
+                bool anyBtnHover = false;
+                foreach (var b in _actionButtons)
+                {
+                    if (b.Hovered) { anyBtnHover = true; break; }
+                }
+                Cursor = anyBtnHover ? Cursors.Hand : Cursors.Default;
+            }
         }
 
         protected override void OnMouseClick(MouseEventArgs e)
@@ -595,20 +778,20 @@ namespace sdk_popup
                 return;
             }
 
+            // v1.5: check action button hit first
+            foreach (var btn in _actionButtons)
+            {
+                if (btn.Bounds.Contains(e.Location))
+                {
+                    ActionClicked?.Invoke(btn.Id);
+                    DismissWithFade("ActionClicked");
+                    return;
+                }
+            }
+
             // Click anywhere else fires Clicked event and dismisses
             Clicked?.Invoke();
             DismissWithFade("UserDismissed");
-        }
-
-        protected override void OnMouseLeave(EventArgs e)
-        {
-            base.OnMouseLeave(e);
-            if (_closeButtonHovered)
-            {
-                _closeButtonHovered = false;
-                Cursor = Cursors.Default;
-                Invalidate(_closeButtonRect);
-            }
         }
 
         #endregion

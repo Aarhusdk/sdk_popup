@@ -71,6 +71,22 @@ namespace sdk_popup
         private int _nextNotificationId = 1;
         private int _maxStackSize;  // 0 = unlimited
 
+        // --- v1.4.0 ---
+        private string _soundPreset = "";
+        private bool _deduplication;
+        private int _rateLimit;  // 0 = no limit
+        private List<DateTime> _recentToasts = new List<DateTime>();
+        private bool _hoverPause = true;
+
+        // --- v1.5.0 ---
+        private bool _htmlEnabled;
+        private int _monitorIndex = -1;  // -1 = auto (owner window)
+        private readonly DoNotDisturbManager _dnd = new DoNotDisturbManager();
+        private readonly NotificationHistory _history = new NotificationHistory();
+        private bool _historyEnabled;
+        private readonly PresetManager _presets = new PresetManager();
+        private readonly List<ActionButton> _actionButtons = new List<ActionButton>();
+
         #endregion
 
         #region COM Event Delegates
@@ -88,6 +104,9 @@ namespace sdk_popup
         public delegate void NotificationUpdatedDelegate(string notificationId, string title, string message);
         public delegate void ProgressChangedDelegate(string notificationId, int percent);
 
+        // Action button event delegate (v1.5.0)
+        public delegate void ActionButtonClickedDelegate(string notificationId, string buttonId);
+
         #endregion
 
         #region COM Events
@@ -104,6 +123,9 @@ namespace sdk_popup
         // Auto-update events (v1.2.0)
         public event NotificationUpdatedDelegate NotificationUpdated;
         public event ProgressChangedDelegate ProgressChanged;
+
+        // Action button events (v1.5.0)
+        public event ActionButtonClickedDelegate ActionButtonClicked;
 
         #endregion
 
@@ -135,10 +157,12 @@ namespace sdk_popup
             _alertControl.ShowPinButton = false;
             _alertControl.ShowCloseButton = true;
             _alertControl.ShowToolTips = false;
+            _alertControl.AllowHtmlText = true;  // v1.5: HTML support
 
             _alertControl.AlertClick += AlertControl_AlertClick;
             _alertControl.FormClosing += AlertControl_FormClosing;
             _alertControl.BeforeFormShow += AlertControl_BeforeFormShow;
+            _alertControl.ButtonClick += AlertControl_ButtonClick;  // v1.5: action buttons
 
             ApplyPosition();
         }
@@ -512,6 +536,492 @@ namespace sdk_popup
             return "Default,Dark,Light,Rounded,Minimal";
         }
 
+        // --- Sound Preset (v1.4.0) ---
+
+        [ComVisible(true)]
+        [Description("Sets a built-in sound preset: Success, Error, Warning, Chime, Ding, Silent")]
+        public void SetSoundPreset(string preset)
+        {
+            _soundPreset = (preset ?? "").Trim().Trim('"');
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the current sound preset name")]
+        public string GetSoundPreset()
+        {
+            return _soundPreset ?? "";
+        }
+
+        // --- Deduplication & Rate Limiting (v1.4.0) ---
+
+        [ComVisible(true)]
+        [Description("Enables deduplication: duplicate title+message updates existing notification in-place")]
+        public void SetDeduplication(bool enabled)
+        {
+            _deduplication = enabled;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets whether deduplication is enabled")]
+        public bool GetDeduplication()
+        {
+            return _deduplication;
+        }
+
+        [ComVisible(true)]
+        [Description("Sets the maximum number of notifications per second (0 = unlimited)")]
+        public void SetRateLimit(int maxPerSecond)
+        {
+            _rateLimit = Math.Max(0, maxPerSecond);
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the current rate limit")]
+        public int GetRateLimit()
+        {
+            return _rateLimit;
+        }
+
+        // --- Hover Pause (v1.4.0) ---
+
+        [ComVisible(true)]
+        [Description("Enables pausing the auto-dismiss timer while mouse is over the notification")]
+        public void SetHoverPause(bool enabled)
+        {
+            _hoverPause = enabled;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets whether hover-pause is enabled")]
+        public bool GetHoverPause()
+        {
+            return _hoverPause;
+        }
+
+        #endregion
+
+        #region Isdk_popup Methods (v1.5.0 HTML)
+
+        [ComVisible(true)]
+        [Description("Shows a notification with HTML-formatted message")]
+        public void ShowNotificationHtml(string htmlMessage)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(new Action<string>(ShowNotificationHtml), htmlMessage);
+                    return;
+                }
+                bool prev = _htmlEnabled;
+                _htmlEnabled = true;
+                _message = htmlMessage ?? "";
+                ShowAlert();
+                _htmlEnabled = prev;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowNotificationHtml error: {ex.Message}");
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Shows a notification with HTML title and message")]
+        public void ShowNotificationWithTitleHtml(string title, string htmlMessage)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(new Action<string, string>(ShowNotificationWithTitleHtml), title, htmlMessage);
+                    return;
+                }
+                bool prev = _htmlEnabled;
+                _htmlEnabled = true;
+                _title = title ?? "Notification";
+                _message = htmlMessage ?? "";
+                ShowAlert();
+                _htmlEnabled = prev;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowNotificationWithTitleHtml error: {ex.Message}");
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Shows a notification with HTML content, returns notification ID")]
+        public string ShowNotificationHtmlEx(string title, string htmlMessage)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (string)Invoke(new Func<string, string, string>(ShowNotificationHtmlEx), title, htmlMessage);
+                }
+                bool prev = _htmlEnabled;
+                _htmlEnabled = true;
+                string t = title ?? "Notification";
+                string m = htmlMessage ?? "";
+                _title = t;
+                _message = m;
+                string id = ShowAlertTracked(t, m);
+                _htmlEnabled = prev;
+                return id;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowNotificationHtmlEx error: {ex.Message}");
+                return "";
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Enables HTML rendering for text (Default style fully supports HTML; styled forms strip tags)")]
+        public void SetHtmlEnabled(bool enabled)
+        {
+            _htmlEnabled = enabled;
+            if (_alertControl != null)
+            {
+                try { _alertControl.AllowHtmlText = true; } catch { }
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Gets whether HTML rendering is enabled")]
+        public bool GetHtmlEnabled()
+        {
+            return _htmlEnabled;
+        }
+
+        #endregion
+
+        #region Isdk_popup Methods (v1.5.0 Multi-Monitor)
+
+        [ComVisible(true)]
+        [Description("Sets the display monitor: -1 = auto, 0+ = specific monitor index")]
+        public void SetDisplayMonitor(int monitorIndex)
+        {
+            _monitorIndex = monitorIndex;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the configured display monitor index")]
+        public int GetDisplayMonitor()
+        {
+            return _monitorIndex;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the number of monitors on the system")]
+        public int GetMonitorCount()
+        {
+            try { return Screen.AllScreens.Length; }
+            catch { return 1; }
+        }
+
+        #endregion
+
+        #region Isdk_popup Methods (v1.5.0 ShowPending / Resolve / Reject)
+
+        [ComVisible(true)]
+        [Description("Shows a pinned notification with progress bar - call ResolveNotification or RejectNotification when done")]
+        public string ShowPending(string title, string message)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (string)Invoke(new Func<string, string, string>(ShowPending), title, message);
+                }
+
+                _title = title ?? "";
+                _message = message ?? "";
+                _notificationType = "Info";
+                bool prevPinned = _pinned;
+                _pinned = true;
+
+                string id = ShowAlertTracked(_title, _message);
+
+                _pinned = prevPinned;
+
+                if (!string.IsNullOrEmpty(id))
+                {
+                    // Inject a 0% progress bar so users see "work in progress"
+                    UpdateProgress(id, 0);
+                }
+
+                return id;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowPending error: {ex.Message}");
+                return "";
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Resolves a pending notification: turns it into a Success notification and auto-dismisses")]
+        public bool ResolveNotification(string notificationId, string successMessage)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (bool)Invoke(new Func<string, string, bool>(ResolveNotification), notificationId, successMessage);
+                }
+
+                if (string.IsNullOrEmpty(notificationId)) return false;
+                if (!_notifications.TryGetValue(notificationId, out var record)) return false;
+
+                string newMessage = successMessage ?? "Done";
+                _notificationType = "Success";
+
+                // Update text + progress to 100%
+                UpdateNotificationFull(notificationId, record.Title, newMessage, 100);
+
+                // Schedule dismissal after a short display time (3 seconds)
+                var closeTimer = new Timer { Interval = 3000 };
+                closeTimer.Tick += (s, e) =>
+                {
+                    closeTimer.Stop();
+                    closeTimer.Dispose();
+                    try { DismissNotificationById(notificationId); } catch { }
+                };
+                closeTimer.Start();
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ResolveNotification error: {ex.Message}");
+                return false;
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Rejects a pending notification: turns it into an Error notification that stays pinned until dismissed")]
+        public bool RejectNotification(string notificationId, string errorMessage)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (bool)Invoke(new Func<string, string, bool>(RejectNotification), notificationId, errorMessage);
+                }
+
+                if (string.IsNullOrEmpty(notificationId)) return false;
+                if (!_notifications.TryGetValue(notificationId, out var record)) return false;
+
+                string newMessage = errorMessage ?? "Failed";
+                _notificationType = "Error";
+
+                UpdateNotification(notificationId, record.Title, newMessage);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup RejectNotification error: {ex.Message}");
+                return false;
+            }
+        }
+
+        #endregion
+
+        #region Isdk_popup Methods (v1.5.0 Do Not Disturb)
+
+        [ComVisible(true)]
+        [Description("Enables or disables Do Not Disturb mode")]
+        public void SetDoNotDisturb(bool enabled)
+        {
+            _dnd.Manual = enabled;
+        }
+
+        [ComVisible(true)]
+        [Description("Returns whether DND is currently active (manual, timer, or scheduled)")]
+        public bool GetDoNotDisturb()
+        {
+            return _dnd.IsActive();
+        }
+
+        [ComVisible(true)]
+        [Description("Enables DND for the given number of minutes, then auto-disables")]
+        public void SetDoNotDisturbMinutes(int minutes)
+        {
+            _dnd.SetTimer(minutes);
+        }
+
+        [ComVisible(true)]
+        [Description("Sets a daily DND schedule. Times in HH:MM format. Supports overnight windows.")]
+        public void SetDoNotDisturbSchedule(string startHHMM, string endHHMM)
+        {
+            _dnd.SetSchedule(startHHMM, endHHMM);
+        }
+
+        [ComVisible(true)]
+        [Description("Clears the DND schedule")]
+        public void ClearDoNotDisturbSchedule()
+        {
+            _dnd.ClearSchedule();
+        }
+
+        [ComVisible(true)]
+        [Description("Returns DND reason: manual, timer, scheduled, or empty if inactive")]
+        public string GetDoNotDisturbReason()
+        {
+            return _dnd.GetReason();
+        }
+
+        #endregion
+
+        #region Isdk_popup Methods (v1.5.0 Notification History)
+
+        [ComVisible(true)]
+        [Description("Enables or disables notification history logging")]
+        public void SetHistoryEnabled(bool enabled)
+        {
+            _historyEnabled = enabled;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets whether history logging is enabled")]
+        public bool GetHistoryEnabled()
+        {
+            return _historyEnabled;
+        }
+
+        [ComVisible(true)]
+        [Description("Sets the maximum number of history entries retained (default 50)")]
+        public void SetHistoryMaxSize(int maxSize)
+        {
+            _history.MaxSize = maxSize;
+        }
+
+        [ComVisible(true)]
+        [Description("Gets the current number of entries in history")]
+        public int GetHistoryCount()
+        {
+            return _history.Count;
+        }
+
+        [ComVisible(true)]
+        [Description("Returns a JSON entry by index (0 = newest). Empty string if out of range.")]
+        public string GetHistoryItemJson(int index)
+        {
+            return _history.GetJson(index);
+        }
+
+        [ComVisible(true)]
+        [Description("Clears the history")]
+        public void ClearHistory()
+        {
+            _history.Clear();
+        }
+
+        #endregion
+
+        #region Isdk_popup Methods (v1.5.0 JSON Presets)
+
+        [ComVisible(true)]
+        [Description("Saves current settings as a named preset")]
+        public void SavePreset(string name)
+        {
+            _presets.Save(name, CaptureCurrentPreset());
+        }
+
+        [ComVisible(true)]
+        [Description("Loads a preset by name. Returns true if found.")]
+        public bool LoadPreset(string name)
+        {
+            var p = _presets.Get(name);
+            if (p == null) return false;
+            ApplyPreset(p);
+            return true;
+        }
+
+        [ComVisible(true)]
+        [Description("Deletes a preset by name. Returns true if found and deleted.")]
+        public bool DeletePreset(string name)
+        {
+            return _presets.Delete(name);
+        }
+
+        [ComVisible(true)]
+        [Description("Returns comma-separated list of saved preset names")]
+        public string ListPresets()
+        {
+            return _presets.ListNames();
+        }
+
+        [ComVisible(true)]
+        [Description("Shows a notification from a JSON config string")]
+        public string ShowFromJson(string jsonConfig)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    return (string)Invoke(new Func<string, string>(ShowFromJson), jsonConfig);
+                }
+
+                if (string.IsNullOrEmpty(jsonConfig)) return "";
+
+                var parser = new MiniJson(jsonConfig);
+                var d = parser.ParseValue() as System.Collections.Generic.Dictionary<string, object>;
+                if (d == null) return "";
+
+                string title = PresetManager.GetString(d, "title", "Notification");
+                string message = PresetManager.GetString(d, "message", "");
+
+                // Apply optional settings if present
+                ApplyIfPresent(d);
+
+                return ShowAlertTracked(title, message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ShowFromJson error: {ex.Message}");
+                return "";
+            }
+        }
+
+        #endregion
+
+        #region Isdk_popup Methods (v1.5.0 Action Buttons)
+
+        [ComVisible(true)]
+        [Description("Adds an action button to upcoming notifications")]
+        public void AddActionButton(string buttonId, string caption, bool isPrimary)
+        {
+            if (string.IsNullOrEmpty(buttonId) || string.IsNullOrEmpty(caption)) return;
+            _actionButtons.Add(new ActionButton
+            {
+                Id = buttonId.Trim(),
+                Caption = caption.Trim(),
+                IsPrimary = isPrimary
+            });
+        }
+
+        [ComVisible(true)]
+        [Description("Removes all configured action buttons")]
+        public void ClearActionButtons()
+        {
+            _actionButtons.Clear();
+
+            // Also clear the DevExpress AlertControl.Buttons collection
+            if (_alertControl != null)
+            {
+                try { _alertControl.Buttons.Clear(); } catch { }
+            }
+        }
+
+        [ComVisible(true)]
+        [Description("Returns the current number of configured action buttons")]
+        public int GetActionButtonCount()
+        {
+            return _actionButtons.Count;
+        }
+
         [ComVisible(true)]
         [Description("Shows a notification with only an image - no background, title, or message")]
         public void ShowImageNotification()
@@ -521,6 +1031,12 @@ namespace sdk_popup
                 if (InvokeRequired)
                 {
                     Invoke(new Action(ShowImageNotification));
+                    return;
+                }
+
+                if (ShouldThrottle())
+                {
+                    System.Diagnostics.Trace.WriteLine("sdk_popup: rate limit exceeded, dropped image notification");
                     return;
                 }
 
@@ -574,6 +1090,29 @@ namespace sdk_popup
                         RaiseNotificationDismissed("Timeout");
                     };
                     _imageOnlyTimer.Start();
+
+                    // Hover-pause
+                    if (_hoverPause)
+                    {
+                        var capturedForm = _imageOnlyForm;
+                        EventHandler onEnter = (s, _) => { try { _imageOnlyTimer?.Stop(); } catch { } };
+                        EventHandler onLeave = (s, _) =>
+                        {
+                            try
+                            {
+                                if (capturedForm != null && !capturedForm.IsDisposed &&
+                                    !capturedForm.ClientRectangle.Contains(capturedForm.PointToClient(Cursor.Position)))
+                                {
+                                    _imageOnlyTimer?.Start();
+                                }
+                            }
+                            catch { }
+                        };
+                        _imageOnlyForm.MouseEnter += onEnter;
+                        _imageOnlyForm.MouseLeave += onLeave;
+                        pb.MouseEnter += onEnter;
+                        pb.MouseLeave += onLeave;
+                    }
                 }
 
                 if (_soundEnabled)
@@ -583,6 +1122,7 @@ namespace sdk_popup
 
                 _imageOnlyForm.Show();
                 _isVisible = true;
+                RecordRecentToast();
                 RaiseNotificationShown("", "");
             }
             catch (Exception ex)
@@ -938,10 +1478,231 @@ namespace sdk_popup
         }
 
         /// <summary>
+        /// Returns true if a new notification would exceed the rate limit. Trims the buffer as a side effect.
+        /// </summary>
+        private bool ShouldThrottle()
+        {
+            TrimRecentToasts();
+            if (_rateLimit <= 0) return false;
+
+            DateTime now = DateTime.UtcNow;
+            int recent = 0;
+            for (int i = 0; i < _recentToasts.Count; i++)
+            {
+                if ((now - _recentToasts[i]).TotalMilliseconds < 1000)
+                    recent++;
+            }
+            return recent >= _rateLimit;
+        }
+
+        /// <summary>
+        /// If deduplication is on and a tracked notification with matching title+message is visible,
+        /// update it in-place and return its ID. Otherwise returns null.
+        /// </summary>
+        private string TryDedupUpdate(string title, string message)
+        {
+            if (!_deduplication) return null;
+
+            string t = title ?? "";
+            string m = message ?? "";
+
+            foreach (var kvp in _notifications)
+            {
+                var r = kvp.Value;
+                if (r == null || r.IsImageOnly) continue;
+                if ((r.Title ?? "") == t && (r.Message ?? "") == m)
+                {
+                    UpdateNotification(r.Id, t, m);
+                    return r.Id;
+                }
+            }
+            return null;
+        }
+
+        private void RecordRecentToast()
+        {
+            _recentToasts.Add(DateTime.UtcNow);
+            TrimRecentToasts();
+        }
+
+        private void TrimRecentToasts()
+        {
+            DateTime cutoff = DateTime.UtcNow.AddSeconds(-2);
+            while (_recentToasts.Count > 0 && _recentToasts[0] < cutoff)
+            {
+                _recentToasts.RemoveAt(0);
+            }
+        }
+
+        /// <summary>
+        /// v1.5: Returns the target Screen based on the monitor index setting.
+        /// -1 or invalid index = follow owner window or fall back to primary.
+        /// </summary>
+        private Screen GetTargetScreen()
+        {
+            try
+            {
+                if (_monitorIndex < 0)
+                {
+                    // Auto: follow owner form if available
+                    Form owner = FindForm();
+                    if (owner != null && !owner.IsDisposed)
+                    {
+                        return Screen.FromControl(owner);
+                    }
+                    return Screen.PrimaryScreen;
+                }
+
+                var all = Screen.AllScreens;
+                if (_monitorIndex >= 0 && _monitorIndex < all.Length)
+                {
+                    return all[_monitorIndex];
+                }
+            }
+            catch { }
+            return Screen.PrimaryScreen;
+        }
+
+        /// <summary>
+        /// v1.5: Captures current settings as a Preset object.
+        /// </summary>
+        private PresetManager.Preset CaptureCurrentPreset()
+        {
+            return new PresetManager.Preset
+            {
+                Style        = _styleName,
+                Type         = _notificationType,
+                Position     = _position,
+                Duration     = _duration,
+                Opacity      = _opacity,
+                Pinned       = _pinned,
+                BgColor      = _backgroundColor,
+                TextColor    = _textColor,
+                SoundPreset  = _soundPreset,
+                SoundEnabled = _soundEnabled,
+                HoverPause   = _hoverPause
+            };
+        }
+
+        /// <summary>
+        /// v1.5: Applies a preset's settings to the current state.
+        /// </summary>
+        private void ApplyPreset(PresetManager.Preset p)
+        {
+            if (p == null) return;
+            _styleName         = p.Style ?? "Default";
+            _notificationType  = p.Type ?? "Info";
+            _position          = p.Position ?? "TopRight";
+            _duration          = Math.Max(500, p.Duration);
+            _opacity           = Math.Max(10, Math.Min(100, p.Opacity));
+            _pinned            = p.Pinned;
+            _backgroundColor   = p.BgColor ?? "";
+            _textColor         = p.TextColor ?? "";
+            _soundPreset       = p.SoundPreset ?? "";
+            _soundEnabled      = p.SoundEnabled;
+            _hoverPause        = p.HoverPause;
+
+            if (_alertControl != null)
+            {
+                _alertControl.AutoFormDelay = _duration;
+            }
+            ApplyPosition();
+        }
+
+        /// <summary>
+        /// v1.5: Applies optional settings from a parsed JSON dictionary (for ShowFromJson).
+        /// </summary>
+        private void ApplyIfPresent(System.Collections.Generic.Dictionary<string, object> d)
+        {
+            if (d == null) return;
+
+            string style     = PresetManager.GetString(d, "style", null);
+            string type      = PresetManager.GetString(d, "type", null);
+            string position  = PresetManager.GetString(d, "position", null);
+
+            if (style != null) SetStyle(style);
+            if (type != null) _notificationType = type;
+            if (position != null) { _position = position; ApplyPosition(); }
+
+            if (d.ContainsKey("duration")) SetDuration(PresetManager.GetInt(d, "duration", _duration));
+            if (d.ContainsKey("opacity"))  SetOpacity(PresetManager.GetInt(d, "opacity", _opacity));
+            if (d.ContainsKey("pinned"))   _pinned = PresetManager.GetBool(d, "pinned", _pinned);
+
+            string bg = PresetManager.GetString(d, "bgColor", null);
+            if (bg != null) _backgroundColor = bg;
+            string tx = PresetManager.GetString(d, "textColor", null);
+            if (tx != null) _textColor = tx;
+        }
+
+        /// <summary>
+        /// v1.5: Logs a dismissed notification to history if enabled.
+        /// </summary>
+        private void LogToHistory(string title, string message, string type, string reason)
+        {
+            if (_historyEnabled)
+            {
+                _history.Add(title, message, type, reason);
+            }
+        }
+
+        /// <summary>
+        /// v1.5: Strips HTML tags for use in styled forms (which can't render HTML).
+        /// Leaves plain text.
+        /// </summary>
+        private static string StripHtml(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s ?? "";
+            return System.Text.RegularExpressions.Regex.Replace(s, "<[^>]+>", "");
+        }
+
+        /// <summary>
+        /// v1.5: Adds configured action buttons to the AlertControl before showing.
+        /// DevExpress fires AlertControl.ButtonClick which we map to ActionButtonClicked.
+        /// </summary>
+        private void ApplyActionButtonsToAlertControl()
+        {
+            if (_alertControl == null) return;
+            try
+            {
+                _alertControl.Buttons.Clear();
+                foreach (var b in _actionButtons)
+                {
+                    var btn = new DevExpress.XtraBars.Alerter.AlertButton();
+                    btn.Name = b.Id;
+                    btn.Hint = b.Caption;
+                    _alertControl.Buttons.Add(btn);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup ApplyActionButtonsToAlertControl error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Shows a tracked standard alert notification and returns its ID.
         /// </summary>
         private string ShowAlertTracked(string title, string message)
         {
+            // DND: suppress and log to history if enabled
+            if (_dnd.IsActive())
+            {
+                LogToHistory(title, message, _notificationType, "Suppressed (DND: " + _dnd.GetReason() + ")");
+                System.Diagnostics.Trace.WriteLine("sdk_popup: suppressed by DND (" + _dnd.GetReason() + ")");
+                return "";
+            }
+
+            // Dedup: reuse existing notification if same title+message is visible
+            string dedupId = TryDedupUpdate(title, message);
+            if (dedupId != null) return dedupId;
+
+            // Rate limit: drop if over threshold
+            if (ShouldThrottle())
+            {
+                System.Diagnostics.Trace.WriteLine("sdk_popup: rate limit exceeded, dropped notification");
+                return "";
+            }
+
             // Route to styled form if non-default style
             var style = NotificationStyleRegistry.GetStyle(_styleName);
             if (style != null)
@@ -961,10 +1722,14 @@ namespace sdk_popup
 
                 _alertControl.AutoFormDelay = _pinned ? int.MaxValue : _duration;
                 _alertControl.ShowPinButton = _pinned;
+                _alertControl.AllowHtmlText = _htmlEnabled
+                    ? true
+                    : false;
                 ApplyPosition();
+                ApplyActionButtonsToAlertControl();
 
                 string pos = (_position ?? "").ToLower();
-                bool needsReposition = (pos == "center" || pos == "topcenter" || pos == "bottomcenter");
+                bool needsReposition = (pos == "center" || pos == "topcenter" || pos == "bottomcenter") || _monitorIndex >= 0;
 
                 _alertControl.FormShowingEffect = needsReposition
                     ? AlertFormShowingEffect.None
@@ -989,6 +1754,7 @@ namespace sdk_popup
                 _alertControl.Show(ownerForm, info);
 
                 _isVisible = true;
+                RecordRecentToast();
                 RaiseNotificationShown(title, message);
                 RaiseStackNotificationShown(id, title, message);
 
@@ -1019,6 +1785,21 @@ namespace sdk_popup
         /// </summary>
         private void ShowAlert()
         {
+            // DND: suppress (and log) if enabled
+            if (_dnd.IsActive())
+            {
+                LogToHistory(_title, _message, _notificationType, "Suppressed (DND: " + _dnd.GetReason() + ")");
+                System.Diagnostics.Trace.WriteLine("sdk_popup: suppressed by DND (" + _dnd.GetReason() + ")");
+                return;
+            }
+
+            // Rate limit: drop if over threshold
+            if (ShouldThrottle())
+            {
+                System.Diagnostics.Trace.WriteLine("sdk_popup: rate limit exceeded, dropped notification");
+                return;
+            }
+
             // Route to styled form if non-default style
             var style = NotificationStyleRegistry.GetStyle(_styleName);
             if (style != null)
@@ -1036,10 +1817,14 @@ namespace sdk_popup
 
                 _alertControl.AutoFormDelay = _pinned ? int.MaxValue : _duration;
                 _alertControl.ShowPinButton = _pinned;
+                _alertControl.AllowHtmlText = _htmlEnabled
+                    ? true
+                    : false;
                 ApplyPosition();
+                ApplyActionButtonsToAlertControl();
 
                 string pos = (_position ?? "").ToLower();
-                bool needsReposition = (pos == "center" || pos == "topcenter" || pos == "bottomcenter");
+                bool needsReposition = (pos == "center" || pos == "topcenter" || pos == "bottomcenter") || _monitorIndex >= 0;
 
                 _alertControl.FormShowingEffect = needsReposition
                     ? AlertFormShowingEffect.None
@@ -1054,6 +1839,7 @@ namespace sdk_popup
                 _alertControl.Show(ownerForm, info);
 
                 _isVisible = true;
+                RecordRecentToast();
                 RaiseNotificationShown(_title, _message);
 
                 if (needsReposition)
@@ -1080,6 +1866,13 @@ namespace sdk_popup
         /// </summary>
         private string ShowImageTracked()
         {
+            // Rate limit (image-only notifications don't support dedup since no text)
+            if (ShouldThrottle())
+            {
+                System.Diagnostics.Trace.WriteLine("sdk_popup: rate limit exceeded, dropped image notification");
+                return "";
+            }
+
             Image img = GetDisplayImage();
             if (img == null) return "";
 
@@ -1171,6 +1964,30 @@ namespace sdk_popup
                     DismissImageFormById(timerId, "Timeout");
                 };
                 timer.Start();
+
+                // Hover-pause: pause timer while mouse is over the form
+                if (_hoverPause)
+                {
+                    var capturedTimer = timer;
+                    var capturedForm = form;
+                    EventHandler onEnter = (s, _) => { try { capturedTimer.Stop(); } catch { } };
+                    EventHandler onLeave = (s, _) =>
+                    {
+                        try
+                        {
+                            if (!capturedForm.IsDisposed &&
+                                !capturedForm.ClientRectangle.Contains(capturedForm.PointToClient(Cursor.Position)))
+                            {
+                                capturedTimer.Start();
+                            }
+                        }
+                        catch { }
+                    };
+                    form.MouseEnter += onEnter;
+                    form.MouseLeave += onLeave;
+                    pb.MouseEnter += onEnter;
+                    pb.MouseLeave += onLeave;
+                }
             }
 
             if (_soundEnabled)
@@ -1180,6 +1997,7 @@ namespace sdk_popup
 
             form.Show();
             _isVisible = true;
+            RecordRecentToast();
             RaiseNotificationShown("", "");
             RaiseStackNotificationShown(record.Id, "", "");
         }
@@ -1218,6 +2036,9 @@ namespace sdk_popup
             // Remove from tracking
             _visibleImageFormOrder.Remove(record.Id);
             _notifications.Remove(record.Id);
+
+            // v1.5: history log
+            LogToHistory(record.Title, record.Message, _notificationType, reason);
 
             // Fire events
             RaiseNotificationDismissed(reason);
@@ -1324,7 +2145,7 @@ namespace sdk_popup
         {
             if (_visibleImageFormOrder.Count == 0) return;
 
-            Screen screen = Screen.PrimaryScreen;
+            Screen screen = GetTargetScreen();
             Rectangle workArea = screen.WorkingArea;
             string pos = (_position ?? "TopRight").ToLower();
             int gap = 10;
@@ -1388,13 +2209,15 @@ namespace sdk_popup
                 Color? textOverride = ParseHexColor(_textColor);
 
                 var form = new StyledNotificationForm(
-                    style, title, message, _notificationType,
+                    style, StripHtml(title), StripHtml(message), _notificationType,
                     icon, _opacity, _pinned, _duration,
-                    bgOverride, textOverride);
+                    bgOverride, textOverride, _hoverPause,
+                    _actionButtons.Count > 0 ? new List<ActionButton>(_actionButtons) : null);
 
                 form.Dismissed += (reason) =>
                 {
                     _isVisible = false;
+                    LogToHistory(title, message, _notificationType, reason);
                     RaiseNotificationDismissed(reason);
                 };
 
@@ -1412,6 +2235,7 @@ namespace sdk_popup
 
                 form.Show();
                 _isVisible = true;
+                RecordRecentToast();
                 RaiseNotificationShown(title, message);
             }
             catch (Exception ex)
@@ -1436,9 +2260,10 @@ namespace sdk_popup
                 Color? textOverride = ParseHexColor(_textColor);
 
                 var form = new StyledNotificationForm(
-                    style, title, message, _notificationType,
+                    style, StripHtml(title), StripHtml(message), _notificationType,
                     icon, _opacity, _pinned, _duration,
-                    bgOverride, textOverride);
+                    bgOverride, textOverride, _hoverPause,
+                    _actionButtons.Count > 0 ? new List<ActionButton>(_actionButtons) : null);
 
                 var record = new NotificationRecord
                 {
@@ -1465,6 +2290,11 @@ namespace sdk_popup
                     RaiseStackNotificationClicked(capturedId, title);
                 };
 
+                form.ActionClicked += (buttonId) =>
+                {
+                    RaiseActionButtonClicked(capturedId, buttonId);
+                };
+
                 // Reflow positions (reuses existing stacking logic)
                 ReflowImageForms();
 
@@ -1475,6 +2305,7 @@ namespace sdk_popup
 
                 form.Show();
                 _isVisible = true;
+                RecordRecentToast();
                 RaiseNotificationShown(title, message);
                 RaiseStackNotificationShown(id, title, message);
 
@@ -1508,7 +2339,7 @@ namespace sdk_popup
         /// </summary>
         private void PositionImageOnlyForm(Form form)
         {
-            Screen screen = Screen.PrimaryScreen;
+            Screen screen = GetTargetScreen();
             Rectangle workArea = screen.WorkingArea;
             int x, y;
 
@@ -1582,26 +2413,45 @@ namespace sdk_popup
             var forms = _alertControl.AlertFormList;
             if (forms == null || forms.Count == 0) return;
 
-            Screen screen = Screen.PrimaryScreen;
+            Screen screen = GetTargetScreen();
             Rectangle workArea = screen.WorkingArea;
 
             for (int i = 0; i < forms.Count; i++)
             {
                 var alertForm = forms[i];
-                int x = workArea.Left + (workArea.Width - alertForm.Width) / 2;
-                int y;
+                int x, y;
 
-                if (pos == "center")
+                switch (pos)
                 {
-                    y = workArea.Top + (workArea.Height - alertForm.Height) / 2;
-                }
-                else if (pos == "topcenter")
-                {
-                    y = workArea.Top + 10;
-                }
-                else // bottomcenter
-                {
-                    y = workArea.Bottom - alertForm.Height - 10;
+                    case "topleft":
+                        x = workArea.Left + 10;
+                        y = workArea.Top + 10 + i * (alertForm.Height + 6);
+                        break;
+                    case "topright":
+                        x = workArea.Right - alertForm.Width - 10;
+                        y = workArea.Top + 10 + i * (alertForm.Height + 6);
+                        break;
+                    case "bottomleft":
+                        x = workArea.Left + 10;
+                        y = workArea.Bottom - alertForm.Height - 10 - i * (alertForm.Height + 6);
+                        break;
+                    case "bottomright":
+                        x = workArea.Right - alertForm.Width - 10;
+                        y = workArea.Bottom - alertForm.Height - 10 - i * (alertForm.Height + 6);
+                        break;
+                    case "topcenter":
+                        x = workArea.Left + (workArea.Width - alertForm.Width) / 2;
+                        y = workArea.Top + 10 + i * (alertForm.Height + 6);
+                        break;
+                    case "bottomcenter":
+                        x = workArea.Left + (workArea.Width - alertForm.Width) / 2;
+                        y = workArea.Bottom - alertForm.Height - 10 - i * (alertForm.Height + 6);
+                        break;
+                    case "center":
+                    default:
+                        x = workArea.Left + (workArea.Width - alertForm.Width) / 2;
+                        y = workArea.Top + (workArea.Height - alertForm.Height) / 2;
+                        break;
                 }
 
                 alertForm.Location = new Point(x, y);
@@ -1756,6 +2606,13 @@ namespace sdk_popup
         {
             try
             {
+                // Preset takes precedence over custom path
+                if (!string.IsNullOrEmpty(_soundPreset))
+                {
+                    PlayPresetSound(_soundPreset);
+                    return;
+                }
+
                 if (!string.IsNullOrEmpty(_soundPath) && File.Exists(_soundPath))
                 {
                     using (var player = new SoundPlayer(_soundPath))
@@ -1772,6 +2629,55 @@ namespace sdk_popup
             {
                 System.Diagnostics.Trace.WriteLine($"sdk_popup PlayNotificationSound error: {ex.Message}");
             }
+        }
+
+        private void PlayPresetSound(string preset)
+        {
+            switch ((preset ?? "").Trim().ToLower())
+            {
+                case "success":
+                    SystemSounds.Asterisk.Play();
+                    break;
+                case "error":
+                    SystemSounds.Hand.Play();
+                    break;
+                case "warning":
+                    SystemSounds.Exclamation.Play();
+                    break;
+                case "chime":
+                    PlayMediaFile("chimes.wav", SystemSounds.Asterisk);
+                    break;
+                case "ding":
+                    PlayMediaFile("ding.wav", SystemSounds.Beep);
+                    break;
+                case "silent":
+                    break;
+                default:
+                    SystemSounds.Asterisk.Play();
+                    break;
+            }
+        }
+
+        private void PlayMediaFile(string fileName, SystemSound fallback)
+        {
+            try
+            {
+                string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+                string path = Path.Combine(winDir, "Media", fileName);
+                if (File.Exists(path))
+                {
+                    using (var player = new SoundPlayer(path))
+                    {
+                        player.Play();
+                    }
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup PlayMediaFile error: {ex.Message}");
+            }
+            try { fallback.Play(); } catch { }
         }
 
         private void ApplyPosition()
@@ -1837,6 +2743,97 @@ namespace sdk_popup
                     }
                 }
                 catch { }
+
+                // Hover-pause: stop/start the AlertForm's internal auto-close timer on mouse enter/leave
+                if (_hoverPause && !_pinned)
+                {
+                    AttachHoverPauseToAlertForm(e.AlertForm);
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Attaches hover-pause handlers to a DevExpress AlertForm.
+        /// Uses reflection to locate the internal auto-close timer (field name varies by DevExpress version).
+        /// Silently degrades if the timer cannot be located.
+        /// </summary>
+        private void AttachHoverPauseToAlertForm(Form alertForm)
+        {
+            if (alertForm == null) return;
+
+            object timer = FindTimerViaReflection(alertForm);
+            if (timer == null)
+            {
+                System.Diagnostics.Trace.WriteLine("sdk_popup: hover-pause not applied (AlertForm timer not found via reflection)");
+                return;
+            }
+
+            EventHandler onEnter = (s, _) => TrySetTimerEnabled(timer, false);
+            EventHandler onLeave = (s, _) =>
+            {
+                try
+                {
+                    if (!alertForm.IsDisposed &&
+                        !alertForm.ClientRectangle.Contains(alertForm.PointToClient(Cursor.Position)))
+                    {
+                        TrySetTimerEnabled(timer, true);
+                    }
+                }
+                catch { }
+            };
+
+            alertForm.MouseEnter += onEnter;
+            alertForm.MouseLeave += onLeave;
+            AttachHoverRecursive(alertForm, onEnter, onLeave);
+        }
+
+        /// <summary>
+        /// Recursively attaches mouse enter/leave handlers to all child controls
+        /// (AlertForm has labels, images, buttons that otherwise swallow MouseLeave from parent).
+        /// </summary>
+        private void AttachHoverRecursive(Control parent, EventHandler onEnter, EventHandler onLeave)
+        {
+            foreach (Control child in parent.Controls)
+            {
+                child.MouseEnter += onEnter;
+                child.MouseLeave += onLeave;
+                AttachHoverRecursive(child, onEnter, onLeave);
+            }
+        }
+
+        /// <summary>
+        /// Walks the form type hierarchy looking for any Timer field (DevExpress AlertForm's internal timer).
+        /// </summary>
+        private object FindTimerViaReflection(Form form)
+        {
+            var type = form.GetType();
+            var flags = System.Reflection.BindingFlags.Instance
+                      | System.Reflection.BindingFlags.NonPublic
+                      | System.Reflection.BindingFlags.Public;
+
+            while (type != null && type != typeof(object))
+            {
+                foreach (var field in type.GetFields(flags))
+                {
+                    object val;
+                    try { val = field.GetValue(form); } catch { continue; }
+                    if (val is Timer) return val;
+                }
+                type = type.BaseType;
+            }
+            return null;
+        }
+
+        private void TrySetTimerEnabled(object timer, bool enabled)
+        {
+            try
+            {
+                if (timer is Timer t)
+                {
+                    if (enabled) t.Start();
+                    else t.Stop();
+                }
             }
             catch { }
         }
@@ -1872,6 +2869,8 @@ namespace sdk_popup
             {
                 // Try to find the notification ID for this closing form
                 string id = null;
+                string closingTitle = _title;
+                string closingMessage = _message;
 
                 // Try via AlertForm property on the event args
                 try
@@ -1892,9 +2891,17 @@ namespace sdk_popup
                 // If we found a tracked notification, clean it up
                 if (!string.IsNullOrEmpty(id))
                 {
+                    if (_notifications.TryGetValue(id, out var record))
+                    {
+                        closingTitle = record.Title;
+                        closingMessage = record.Message;
+                    }
                     _notifications.Remove(id);
                     RaiseStackNotificationDismissed(id, "Timeout");
                 }
+
+                // v1.5: history log
+                LogToHistory(closingTitle, closingMessage, _notificationType, "Timeout");
 
                 // Legacy behavior
                 if (_notifications.Count == 0)
@@ -1904,6 +2911,31 @@ namespace sdk_popup
                 RaiseNotificationDismissed("Timeout");
             }
             catch { }
+        }
+
+        /// <summary>
+        /// v1.5: Routes DevExpress AlertControl.ButtonClick -> ActionButtonClicked COM event.
+        /// </summary>
+        private void AlertControl_ButtonClick(object sender, AlertButtonClickEventArgs e)
+        {
+            try
+            {
+                string buttonId = e?.Button?.Name ?? "";
+                string notifId = "";
+
+                try
+                {
+                    var info = e?.Info;
+                    if (info?.Tag is string id) notifId = id;
+                }
+                catch { }
+
+                RaiseActionButtonClicked(notifId, buttonId);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"sdk_popup AlertControl_ButtonClick error: {ex.Message}");
+            }
         }
 
         #endregion
@@ -1982,6 +3014,15 @@ namespace sdk_popup
             }
         }
 
+        private void RaiseActionButtonClicked(string notificationId, string buttonId)
+        {
+            if (ActionButtonClicked != null)
+            {
+                try { ActionButtonClicked(notificationId, buttonId); }
+                catch { }
+            }
+        }
+
         #endregion
 
         #region Cleanup
@@ -2009,6 +3050,7 @@ namespace sdk_popup
                     _alertControl.AlertClick -= AlertControl_AlertClick;
                     _alertControl.FormClosing -= AlertControl_FormClosing;
                     _alertControl.BeforeFormShow -= AlertControl_BeforeFormShow;
+                    _alertControl.ButtonClick -= AlertControl_ButtonClick;
                     _alertControl.Dispose();
                     _alertControl = null;
                 }

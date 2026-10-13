@@ -67,5 +67,13 @@ namespace sdk_popup
         /// </summary>
         [DispId(14)]
         void ProgressChanged(string notificationId, int percent);
+
+        // --- Action Button Events (v1.5.0) ---
+
+        /// <summary>
+        /// Fired when the user clicks an action button on a notification
+        /// </summary>
+        [DispId(15)]
+        void ActionButtonClicked(string notificationId, string buttonId);
     }
 }
