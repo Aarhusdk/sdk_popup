@@ -194,6 +194,22 @@ namespace sdk_popup
         }
 
         [ComVisible(true)]
+        [Description("Title text as a property (assignment passes any text safely from Clarion)")]
+        public string Title
+        {
+            get { return _title ?? ""; }
+            set { _title = value ?? ""; }
+        }
+
+        [ComVisible(true)]
+        [Description("Message text as a property (assignment passes any text safely from Clarion)")]
+        public string Message
+        {
+            get { return _message ?? ""; }
+            set { _message = value ?? ""; }
+        }
+
+        [ComVisible(true)]
         [Description("Sets the notification message text")]
         public void SetMessage(string message)
         {
@@ -468,7 +484,7 @@ namespace sdk_popup
         // --- Style/Theme ---
 
         [ComVisible(true)]
-        [Description("Sets the notification style: Default, Dark, Light, Rounded, Minimal")]
+        [Description("Sets the notification style: Default, Dark, Light, Rounded, Minimal, Touch")]
         public void SetStyle(string styleName)
         {
             string s = (styleName ?? "Default").Trim().Trim('"');
@@ -487,7 +503,7 @@ namespace sdk_popup
         [Description("Returns a comma-separated list of available style names")]
         public string GetAvailableStyles()
         {
-            return "Default,Dark,Light,Rounded,Minimal";
+            return "Default,Dark,Light,Rounded,Minimal,Touch";
         }
 
         // --- Sound Preset (v1.4.0) ---
@@ -1446,6 +1462,11 @@ namespace sdk_popup
                     if (owner != null && !owner.IsDisposed)
                     {
                         return Screen.FromControl(owner);
+                    }
+                    // Hosted in a non-WinForms window (Clarion): use the monitor the control itself is on
+                    if (IsHandleCreated)
+                    {
+                        return Screen.FromControl(this);
                     }
                     return Screen.PrimaryScreen;
                 }

@@ -600,5 +600,20 @@ namespace sdk_popup
         /// </summary>
         [DispId(93)]
         int GetActionButtonCount();
+
+        // ===== v1.6.0: text as properties =====
+
+        /// <summary>
+        /// Title text as a property. Clarion sets it by assignment (Ctrl{'Title'} = ...), which passes
+        /// any text safely - a method call with ; = or quotes in a string argument fails silently in Clarion's OLE parser.
+        /// </summary>
+        [DispId(100)]
+        string Title { get; set; }
+
+        /// <summary>
+        /// Message text as a property (see Title). Then call ShowNotificationEx() to show it.
+        /// </summary>
+        [DispId(101)]
+        string Message { get; set; }
     }
 }

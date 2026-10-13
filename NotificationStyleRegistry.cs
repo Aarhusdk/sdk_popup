@@ -19,6 +19,7 @@ namespace sdk_popup
                 case "light": return CreateLightStyle();
                 case "rounded": return CreateRoundedStyle();
                 case "minimal": return CreateMinimalStyle();
+                case "touch": return CreateTouchStyle();
                 default: return CreateDefaultStyle();
             }
         }
@@ -143,6 +144,43 @@ namespace sdk_popup
                 PaddingBottom = 14,
                 ProgressBarBackColor = Color.FromArgb(80, 255, 255, 255),
                 ProgressBarFillColor = Color.White,
+                ProgressBarHeight = 4,
+                UseDropShadow = true
+            };
+        }
+
+        /// <summary>
+        /// Large text for touch screens (POS), slate colours. Readable at arm's length.
+        /// </summary>
+        private static NotificationStyle CreateTouchStyle()
+        {
+            return new NotificationStyle
+            {
+                Name = "Touch",
+                BackgroundColor = Color.FromArgb(30, 41, 59),          // #1E293B
+                TitleColor = Color.FromArgb(203, 213, 225),            // #CBD5E1
+                MessageColor = Color.White,
+                FontFamily = "Segoe UI",
+                TitleFontSize = 12f,
+                MessageFontSize = 15f,
+                TitleFontStyle = FontStyle.Bold,
+                MessageFontStyle = FontStyle.Bold,
+                ShowAccentBar = true,
+                AccentBarWidth = 6,
+                CornerRadius = 10,
+                BorderColor = Color.FromArgb(51, 65, 85),              // #334155
+                BorderWidth = 1,
+                ShowIcon = true,
+                ShowCloseButton = true,
+                CloseButtonColor = Color.FromArgb(148, 163, 184),      // #94A3B8
+                CloseButtonHoverColor = Color.White,
+                FormWidth = 440,
+                PaddingLeft = 16,
+                PaddingRight = 16,
+                PaddingTop = 14,
+                PaddingBottom = 14,
+                ProgressBarBackColor = Color.FromArgb(51, 65, 85),
+                ProgressBarFillColor = Color.Empty,
                 ProgressBarHeight = 4,
                 UseDropShadow = true
             };

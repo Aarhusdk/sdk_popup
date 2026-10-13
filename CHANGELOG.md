@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [1.6.0] - 2026-10-13
 
+### Added
+- `Title` / `Message` COM properties (DispId 100/101). Clarion sets them by assignment (`Ctrl{'Message'} = ...`), which passes any text; a method call with `;`, `=` or quotes in a string argument fails silently in Clarion's OLE parser. Then call `ShowNotificationEx()`.
+- `Touch` style: large bold text (12/15 pt), slate colours, 440 px wide - for POS touch screens.
+
+### Changed
+- Manifest assemblyIdentity version is now fixed at `1.0.0.0` (like the other COM controls), so host .EXE.manifest files don't need updating on every release.
+- Hosted in a non-WinForms window (Clarion), notifications now appear on the monitor the control is on, not always the primary monitor.
+
 ### Removed
 - **DevExpress dependency.** The `Default` style no longer uses DevExpress `AlertControl`; it is now drawn by the control's own `StyledNotificationForm` (Light look). The `DevExpress.Win` package reference is gone, so no DevExpress DLLs or license are needed. The COM interface (methods, DispIds, events) is unchanged.
 
